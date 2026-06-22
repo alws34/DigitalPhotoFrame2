@@ -187,8 +187,9 @@ def _run_pygame(settings: Dict[str, Any], settings_path: str) -> None:
     t = threading.Thread(target=srv.run_photoframe, daemon=True)
     t.start()
 
-    print(f"[PhotoFrame] Running. Admin UI at http://0.0.0.0:"
-          f"{settings.get('backend_configs', {}).get('server_port', 5002)}")
+    _port = settings.get("backend_configs", {}).get("server_port", 80)
+    _url  = "http://0.0.0.0" if _port == 80 else f"http://0.0.0.0:{_port}"
+    print(f"[PhotoFrame] Running. Admin UI at {_url}")
 
     # Main loop: process SDL events and render frames
     # pygame requires display updates from the main thread

@@ -46,6 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     network-manager \
     wireless-tools \
     tzdata \
+    libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -65,6 +66,9 @@ COPY arial.ttf ./
 # Copy built frontend from stage 1
 COPY --from=frontend-build /build/frontend/dist ./frontend/dist
 
+# Grant CAP_NET_BIND_SERVICE so UID 1000 can bind port 80 without root
+RUN setcap 'cap_net_bind_service=+ep' /usr/local/bin/python3.11
+
 # Create default directories
 RUN mkdir -p /app/Images /data && chown -R 1000:1000 /app /data
 
@@ -72,7 +76,7 @@ RUN mkdir -p /app/Images /data && chown -R 1000:1000 /app /data
 VOLUME ["/app/Images", "/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -sf http://localhost:5002/ || exit 1
+    CMD curl -sf http://localhost:80/ || exit 1
 
 # Default: pygame display mode (use --headless for server-only)
 ENTRYPOINT ["python", "app.py"]

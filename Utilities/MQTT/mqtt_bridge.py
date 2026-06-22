@@ -707,16 +707,21 @@ class MqttBridge:
 
     # ---------- brightness ----------
     def _resolve_screen_ctrl(self):
-        """Return the first view attribute that supports set_brightness_percent.
+        """Return an object with set_brightness_percent for the current view.
 
-        Qt view stores it as screen_ctrl; pygame view uses screen (pygame Surface,
-        which does NOT have that method). Checking both in priority order means Qt
-        mode no longer silently falls through to the raw sysfs path.
+        Priority:
+          1. view.screen_ctrl  — Qt mode (ScreenController instance)
+          2. view itself       — pygame mode (PhotoFramePygame has the method directly)
+          3. view.screen       — future-proof fallback
         """
-        for attr in ("screen_ctrl", "screen"):
-            sc = getattr(self.view, attr, None)
-            if sc is not None and hasattr(sc, "set_brightness_percent"):
-                return sc
+        sc = getattr(self.view, "screen_ctrl", None)
+        if sc is not None and hasattr(sc, "set_brightness_percent"):
+            return sc
+        if self.view is not None and hasattr(self.view, "set_brightness_percent"):
+            return self.view
+        sc = getattr(self.view, "screen", None)
+        if sc is not None and hasattr(sc, "set_brightness_percent"):
+            return sc
         return None
 
     def _read_brightness_percent(self) -> Optional[int]:

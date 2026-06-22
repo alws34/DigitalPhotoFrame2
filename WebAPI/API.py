@@ -231,7 +231,7 @@ class APIServer:
         self.app.secret_key = env_secret or backend_cfg.get("supersecretkey", "CHANGE_ME")
         self.stream_h = int(backend_cfg.get("stream_height", 1080))
         self.stream_w = int(backend_cfg.get("stream_width", 1920))
-        self.port = int(backend_cfg.get("server_port", 5001))
+        self.port = int(backend_cfg.get("server_port", 80))
         self.host = str(backend_cfg.get("host", "0.0.0.0"))
 
         self.ALLOWED_EXTENSIONS = {
@@ -780,13 +780,20 @@ class APIServer:
             except OSError:
                 print(f"[Backend] Port {self.port} busy, retrying in 3s ({attempt + 1}/10)…")
                 time.sleep(3)
-        self.app.run(
-            host=host,
-            port=self.port,
-            debug=False,
-            use_reloader=False,
-            threaded=True,
-        )
+        try:
+            from waitress import serve as _waitress_serve
+            print(f"[Backend] Starting waitress on {host}:{self.port}")
+            _waitress_serve(self.app, host=host, port=self.port, threads=8,
+                            channel_timeout=120, cleanup_interval=30)
+        except ImportError:
+            print(f"[Backend] waitress not found, falling back to Flask dev server on {host}:{self.port}")
+            self.app.run(
+                host=host,
+                port=self.port,
+                debug=False,
+                use_reloader=False,
+                threaded=True,
+            )
 
 
 if __name__ == "__main__":

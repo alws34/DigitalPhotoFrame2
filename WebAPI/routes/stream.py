@@ -41,7 +41,6 @@ def stream():
     headers = {
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache",
-        "Connection": "keep-alive",
         "X-Accel-Buffering": "no",
     }
     return Response(

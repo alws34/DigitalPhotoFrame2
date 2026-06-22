@@ -7,7 +7,7 @@
   },
   "backend_configs": {
     "host": "0.0.0.0",
-    "server_port": 5002,
+    "server_port": 80,
     "stream_width": 1920,
     "stream_height": 1080,
     "stream_fps": 30,

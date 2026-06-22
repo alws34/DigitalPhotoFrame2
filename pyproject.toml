@@ -32,6 +32,7 @@ dependencies = [
     "pyheif",
     "tqdm",
     "pillow-heif",
+    "waitress",
 ]
 requires-python = ">=3.8"
 

@@ -307,6 +307,10 @@ class PhotoFramePygame:
                 self._brightness_dirty = False
                 with self._frame_lock:
                     bgr = self._last_bgr
+                if bgr is None and self._panel_visible:
+                    # No photo cached yet; render panel on a black background so
+                    # _ui_rects is populated before the first frame arrives.
+                    bgr = np.zeros((self.height, self.width, 3), dtype=np.uint8)
                 if bgr is not None:
                     self._blit_frame(bgr)
                     return True
@@ -466,8 +470,8 @@ class PhotoFramePygame:
     # ------------------------------------------------------------------
     def _draw_qr_tab(self, panel, top: int, bottom: int, pad: int) -> None:
         W = self.width
-        port = self.settings.get("backend_configs", {}).get("server_port", 5002)
-        url  = f"http://{self._info_url}:{port}"
+        port = self.settings.get("backend_configs", {}).get("server_port", 80)
+        url  = f"http://{self._info_url}" if port == 80 else f"http://{self._info_url}:{port}"
         y    = top
 
         title = self._font_title.render("  Settings & Admin", True, (255, 255, 255))
@@ -1113,8 +1117,8 @@ class PhotoFramePygame:
         except Exception:
             self._info_url = "?.?.?.?"
 
-        port = self.settings.get("backend_configs", {}).get("server_port", 5002)
-        url  = f"http://{self._info_url}:{port}"
+        port = self.settings.get("backend_configs", {}).get("server_port", 80)
+        url  = f"http://{self._info_url}" if port == 80 else f"http://{self._info_url}:{port}"
         self._qr_surface = self._make_qr_surface(url)
 
         try:
@@ -1131,6 +1135,9 @@ class PhotoFramePygame:
         self._scroll_offsets  = {i: 0 for i in range(len(_TABS))}
         self._active_tab      = 0
         self._panel_visible   = True
+        # Render immediately so _ui_rects is populated for taps that land
+        # in the same event-processing batch that opened the panel.
+        self.render_pending_frame()
 
     def _close_panel(self) -> None:
         self._panel_visible   = False

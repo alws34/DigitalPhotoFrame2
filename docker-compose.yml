@@ -5,8 +5,6 @@ services:
     restart: unless-stopped
     network_mode: host
     user: "1000:1000"                        # Run as pi user to access Wayland socket
-    ports:
-      - "${PHOTOFRAME_PORT:-5002}:${PHOTOFRAME_PORT:-5002}"
     volumes:
       - ./Images:/app/Images
       - ./photoframe_settings.json:/app/photoframe_settings.json:ro  # seed for one-time migration; settings are stored in /data DB after first run
