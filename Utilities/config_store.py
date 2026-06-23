@@ -66,6 +66,11 @@ def get_default_settings() -> dict[str, Any]:
         },
         "effects": {
             "allow_translucent_background": True,
+            "background_type": "blur",
+            "background_color": "#000000",
+            "preset": "custom",
+            "tint_color": "#ffffff",
+            "tint_opacity": 0.0,
             "background_blur_enabled": True,
             "background_blur_radius": 61,
             "background_opacity": 0.4,
@@ -174,6 +179,11 @@ SETTINGS_SCHEMA: dict = {
     },
     "effects": {
         "allow_translucent_background": {"type": "bool",  "label": "Enable Translucent Background", "restart_required": False},
+        "background_type":   {"type": "enum",  "label": "Background Type",    "choices": ["blur", "color", "none"], "restart_required": False, "ui": "background_type_picker"},
+        "background_color":  {"type": "str",   "label": "Background Color",   "restart_required": False, "ui": "hex_color"},
+        "preset":            {"type": "enum",  "label": "Preset",             "choices": ["custom", "milk_glass", "tinted_glass", "frosted_dark", "clear"], "restart_required": False, "ui": "preset_picker"},
+        "tint_color":        {"type": "str",   "label": "Tint Color",         "restart_required": False, "ui": "hex_color"},
+        "tint_opacity":      {"type": "float", "label": "Tint Opacity",       "min": 0.0, "max": 1.0, "step": 0.05, "restart_required": False, "no_slider": True},
         "background_blur_enabled":      {"type": "bool",  "label": "Enable Background Blur",         "restart_required": False},
         "background_blur_radius":       {"type": "int",   "label": "Background Blur",  "min": 0, "max": 200, "step": 2,    "restart_required": False, "no_slider": True},
         "background_opacity":           {"type": "float", "label": "Background Opacity","min": 0.0,"max": 1.0,"step": 0.05, "restart_required": False, "no_slider": True},

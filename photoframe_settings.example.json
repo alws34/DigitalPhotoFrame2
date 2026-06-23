@@ -21,6 +21,11 @@
     "timezone": "System Default"
   },
   "effects": {
+    "background_type": "blur",
+    "background_color": "#000000",
+    "preset": "custom",
+    "tint_color": "#ffffff",
+    "tint_opacity": 0.0,
     "background_blur_enabled": true,
     "shadow_enabled": true
   },

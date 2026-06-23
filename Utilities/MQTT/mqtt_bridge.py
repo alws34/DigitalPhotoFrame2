@@ -771,15 +771,37 @@ class MqttBridge:
         try:
             sc = self._resolve_screen_ctrl()
             if sc is not None:
+                # Read previous value before changing so we know whether to toggle hw power
+                prev_pct = None
+                try:
+                    if hasattr(sc, "read_brightness_percent"):
+                        prev_pct = sc.read_brightness_percent()
+                except Exception:
+                    pass
                 ok = bool(sc.set_brightness_percent(pct, allow_zero=True))
                 if not ok:
                     self._log("ScreenController refused brightness change.", logging.WARNING)
+                # Hardware screen power: same logic as _on_settings_changed_pygame
+                try:
+                    from Utilities.brightness import set_screen_power  # noqa: PLC0415
+                    if pct == 0:
+                        set_screen_power(False)
+                    elif prev_pct == 0:
+                        set_screen_power(True)
+                except Exception:
+                    pass
                 self._publish_brightness_state()
                 return
         except Exception as e:
             self._log(f"ScreenController set_brightness failed: {e}", logging.ERROR)
 
-        # Fallback direct write
+        # Fallback direct write (headless / no view)
+        try:
+            from Utilities.brightness import set_screen_power  # noqa: PLC0415
+            if pct == 0:
+                set_screen_power(False)
+        except Exception:
+            pass
         try:
             dev = self._pick_default_backlight()
             if not dev:

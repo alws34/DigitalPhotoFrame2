@@ -1,7 +1,8 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { MonitorPlay, Aperture, Settings, LogOut, User, BookImage, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { MonitorPlay, Aperture, Settings, LogOut, BookImage, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import ProfileAvatar from './ProfileAvatar';
 
 const NAV_ITEMS = [
   { path: '/stream',   icon: <MonitorPlay size={20} />, label: 'Live Stream' },
@@ -41,14 +42,9 @@ export default function DashboardLayout() {
             onClick={() => setSidebarCollapsed(!collapsed)}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{
-              background: 'transparent',
-              border: 'none',
-              padding: '6px',
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              borderRadius: '6px',
-              flexShrink: 0,
+              background: 'transparent', border: 'none', padding: '6px',
+              color: 'var(--text-secondary)', display: 'flex', alignItems: 'center',
+              borderRadius: '6px', flexShrink: 0,
             }}
           >
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
@@ -63,8 +59,7 @@ export default function DashboardLayout() {
               to={item.path}
               title={collapsed ? item.label : undefined}
               style={({ isActive }) => ({
-                display: 'flex',
-                alignItems: 'center',
+                display: 'flex', alignItems: 'center',
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 gap: '0.7rem',
                 padding: collapsed ? '0.7rem' : '0.65rem 0.875rem',
@@ -83,7 +78,7 @@ export default function DashboardLayout() {
           ))}
         </nav>
 
-        {/* Footer */}
+        {/* Footer — profile picture + user info + sign out */}
         <div style={{
           marginTop: 'auto',
           paddingTop: '1rem',
@@ -94,32 +89,26 @@ export default function DashboardLayout() {
           width: '100%',
           alignItems: collapsed ? 'center' : 'stretch',
         }}>
-          {!collapsed && (
+          {!collapsed ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-secondary)' }}>
-              <div style={{ background: 'rgba(255,255,255,0.08)', padding: '0.4rem', borderRadius: '50%', flexShrink: 0 }}>
-                <User size={14} />
-              </div>
+              <ProfileAvatar size="36px" style={{ flexShrink: 0 }} />
               <div style={{ fontSize: '0.85rem', overflow: 'hidden' }}>
                 <div style={{ color: 'white', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user?.username}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user?.role}</div>
               </div>
             </div>
+          ) : (
+            <ProfileAvatar size="32px" />
           )}
 
           <button
             onClick={logout}
             title={collapsed ? 'Sign Out' : undefined}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              width: '100%',
-              background: 'transparent',
-              border: '1px solid var(--glass-border)',
-              color: 'var(--text-secondary)',
-              padding: collapsed ? '0.6rem' : '0.6rem 0.875rem',
-              borderRadius: '10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: '0.4rem', width: '100%', background: 'transparent',
+              border: '1px solid var(--glass-border)', color: 'var(--text-secondary)',
+              padding: collapsed ? '0.6rem' : '0.6rem 0.875rem', borderRadius: '10px',
             }}
           >
             <LogOut size={15} />

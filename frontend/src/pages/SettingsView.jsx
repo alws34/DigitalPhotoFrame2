@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SettingsSection from "../components/settings/SettingsSection";
+import EffectsPanel from "../components/effects/EffectsPanel";
+import ProfilePicEditor from "../components/ProfilePicEditor";
 
 const HIDDEN_KEYS = new Set(["about"]);
 const MERGED_KEYS = new Set(["backend_configs", "autoupdate", "playback", "screen", "admin_ui", "stats", "effects", "stream"]);
@@ -14,7 +16,7 @@ const TAB_LABELS = {
   ui: "Frame UI",
 };
 
-const TAB_ORDER = ["system", "ui", "albums", "mqtt", "open_meteo"];
+const TAB_ORDER = ["system", "ui", "albums", "mqtt", "open_meteo", "profile"];
 
 const SECTION_LABELS = {
   backend_configs: "Backend Config",
@@ -28,6 +30,7 @@ const SECTION_LABELS = {
 };
 
 function tabLabel(key) {
+  if (key === "profile") return "Profile";
   return TAB_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -116,11 +119,11 @@ export default function SettingsView() {
     return () => es.close();
   }, [fetchSettings]);
 
-  // Build ordered tab list: pinned TAB_ORDER first, unknown tabs at the end, merged keys hidden
+  // Build ordered tab list, injecting "profile" as a synthetic tab
   const tabs = useMemo(() => {
     if (!settings) return [];
     const keys = new Set(Object.keys(settings).filter((k) => !HIDDEN_KEYS.has(k) && !MERGED_KEYS.has(k)));
-    const pinned = TAB_ORDER.filter((k) => keys.has(k));
+    const pinned = TAB_ORDER.filter((k) => keys.has(k) || k === "profile");
     const pinnedSet = new Set(pinned);
     const rest = [...keys].filter((k) => !pinnedSet.has(k)).sort();
     return [...pinned, ...rest];
@@ -198,9 +201,12 @@ export default function SettingsView() {
               {status}
             </span>
           )}
-          <button className="primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
-          </button>
+          {/* Don't show Save on profile tab (picture uploads are immediate) */}
+          {activeTab !== "profile" && (
+            <button className="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -222,42 +228,60 @@ export default function SettingsView() {
         ))}
       </div>
 
-      {activeTab && (
-        <div className="glass" style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-          {/* Primary section */}
-          {settings[activeTab] && typeof settings[activeTab] === "object" && !Array.isArray(settings[activeTab]) && (
-            <SettingsSection
-              data={settings[activeTab]}
-              pathPrefix={activeTab}
-              schema={schema[activeTab] ?? {}}
-              onChange={handleChange}
-              extras={{ albums }}
-            />
-          )}
-          {/* Merged sections */}
-          {(TAB_GROUPS[activeTab] ?? []).map((key) =>
-            settings[key] && typeof settings[key] === "object" && !Array.isArray(settings[key]) ? (
-              <div key={key} style={{ marginTop: 24 }}>
-                <div style={{
-                  fontSize: "0.72em", fontWeight: 700, letterSpacing: "0.1em",
-                  color: "var(--text-secondary)", textTransform: "uppercase",
-                  paddingBottom: 8, borderBottom: "1px solid var(--glass-border)",
-                  marginBottom: 12,
-                }}>
-                  {SECTION_LABELS[key] ?? key}
+      <div className="glass" style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+        {/* Profile tab — synthetic, no settings key */}
+        {activeTab === "profile" && (
+          <div style={{ maxWidth: 480, margin: "0 auto" }}>
+            <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 20, color: "var(--text-secondary)" }}>Profile Picture</h2>
+            <ProfilePicEditor />
+          </div>
+        )}
+
+        {activeTab && activeTab !== "profile" && (
+          <>
+            {/* Primary section */}
+            {settings[activeTab] && typeof settings[activeTab] === "object" && !Array.isArray(settings[activeTab]) && (
+              <SettingsSection
+                data={settings[activeTab]}
+                pathPrefix={activeTab}
+                schema={schema[activeTab] ?? {}}
+                onChange={handleChange}
+                extras={{ albums }}
+              />
+            )}
+            {/* Merged sections — effects gets EffectsPanel, others get SettingsSection */}
+            {(TAB_GROUPS[activeTab] ?? []).map((key) =>
+              settings[key] && typeof settings[key] === "object" && !Array.isArray(settings[key]) ? (
+                <div key={key} style={{ marginTop: 24 }}>
+                  <div style={{
+                    fontSize: "0.72em", fontWeight: 700, letterSpacing: "0.1em",
+                    color: "var(--text-secondary)", textTransform: "uppercase",
+                    paddingBottom: 8, borderBottom: "1px solid var(--glass-border)",
+                    marginBottom: 12,
+                  }}>
+                    {SECTION_LABELS[key] ?? key}
+                  </div>
+                  {key === "effects" ? (
+                    <EffectsPanel
+                      effects={settings.effects ?? {}}
+                      onChange={handleChange}
+                      originalEffects={originalRef.current?.effects}
+                    />
+                  ) : (
+                    <SettingsSection
+                      data={settings[key]}
+                      pathPrefix={key}
+                      schema={schema[key] ?? {}}
+                      onChange={handleChange}
+                      extras={{ albums }}
+                    />
+                  )}
                 </div>
-                <SettingsSection
-                  data={settings[key]}
-                  pathPrefix={key}
-                  schema={schema[key] ?? {}}
-                  onChange={handleChange}
-                  extras={{ albums }}
-                />
-              </div>
-            ) : null
-          )}
-        </div>
-      )}
+              ) : null
+            )}
+          </>
+        )}
+      </div>
 
       {showRestartModal && (
         <div style={{

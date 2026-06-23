@@ -59,7 +59,6 @@ class ScreenController:
         return scr
 
     def _worker(self) -> None:
-        last_user_brightness = None
         ev = self._event
 
         while not self._stop.is_set():
@@ -73,7 +72,7 @@ class ScreenController:
                 # Desired state from schedule
                 desired = "off" if (enabled and self._in_off_period(now_h, off_h, on_h)) else "on"
 
-                # NEW: override with wake grace window
+                # override with wake grace window
                 if desired == "off" and time.monotonic() < float(self._wake_until_ts or 0):
                     desired = "on"
 
@@ -83,17 +82,22 @@ class ScreenController:
                         ev.clear()
                     continue
 
-                cur, maxb = self._read_brightness(dev)
-                cur_pct = int(round(cur * 100.0 / maxb)) if (cur is not None and maxb) else None
-
                 if desired == "off" and self._state != "off":
-                    last_user_brightness = cur_pct if cur_pct is not None else int(scr.get("brightness", 100))
-                    self._set_brightness_percent(dev, 0, allow_zero=True)
+                    try:
+                        from Utilities.brightness import set_screen_power  # noqa: I001, PLC0415
+                        set_screen_power(False)
+                    except Exception:
+                        self._set_brightness_percent(dev, 0, allow_zero=True)
                     self._state = "off"
 
                 elif desired == "on" and self._state != "on":
                     restore = int(scr.get("brightness", 100))
                     restore = max(10, min(100, restore))
+                    try:
+                        from Utilities.brightness import set_screen_power  # noqa: I001, PLC0415
+                        set_screen_power(True)
+                    except Exception:
+                        pass
                     self._set_brightness_percent(dev, restore, allow_zero=False)
                     self._state = "on"
 
@@ -118,7 +122,9 @@ class ScreenController:
 
     @staticmethod
     def _in_off_period(now_h: int, off_h: int, on_h: int) -> bool:
-        now_h %= 24; off_h %= 24; on_h %= 24
+        now_h %= 24
+        off_h %= 24
+        on_h %= 24
         if off_h == on_h:
             return False
         if off_h < on_h:

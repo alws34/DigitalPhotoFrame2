@@ -666,6 +666,7 @@ class APIServer:
         from WebAPI.routes.auth import auth_bp
         from WebAPI.routes.images import images_bp
         from WebAPI.routes.maintenance import maintenance_bp
+        from WebAPI.routes.profile import profile_bp
         from WebAPI.routes.settings import settings_bp
         from WebAPI.routes.sources import sources_bp
         from WebAPI.routes.stream import stream_bp
@@ -678,6 +679,7 @@ class APIServer:
         self.app.register_blueprint(maintenance_bp)
         self.app.register_blueprint(sources_bp)
         self.app.register_blueprint(albums_bp)
+        self.app.register_blueprint(profile_bp)
         
         @self.app.route('/', defaults={'path': ''})
         @self.app.route('/<path:path>')

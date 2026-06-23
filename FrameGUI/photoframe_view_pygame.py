@@ -276,12 +276,19 @@ class PhotoFramePygame:
             brightness = new_settings.get("screen", {}).get("brightness")
             if brightness is not None:
                 pct = int(brightness)
+                was_off = (self._screen_brightness_pct == 0)
                 self.set_brightness_percent(pct)
                 try:
-                    from Utilities.brightness import (  # noqa: PLC0415
+                    from Utilities.brightness import (  # noqa: I001, PLC0415
                         set_brightness_percent as _hw_brightness,
+                        set_screen_power as _hw_power,
                     )
-                    _hw_brightness(pct)
+                    if pct == 0:
+                        _hw_power(False)
+                    else:
+                        if was_off:
+                            _hw_power(True)
+                        _hw_brightness(pct)
                 except Exception:
                     pass
         except Exception as exc:
