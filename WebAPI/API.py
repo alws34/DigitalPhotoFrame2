@@ -1,5 +1,4 @@
 import hashlib
-import json
 import logging
 import os
 import threading
@@ -328,22 +327,15 @@ class APIServer:
     def _ensure_storage_files(self) -> None:
         os.makedirs(self.IMAGE_DIR, exist_ok=True)
 
-        for path, default in [
-            (self.METADATA_FILE, {}),
-            (self.LOG_FILE_PATH, ""),
-        ]:
-            try:
-                d = os.path.dirname(path)
-                if d and not os.path.exists(d):
-                    os.makedirs(d, exist_ok=True)
-                if not os.path.exists(path):
-                    with open(path, "w", encoding="utf-8") as f:
-                        if isinstance(default, dict):
-                            json.dump(default, f, indent=4)
-                        else:
-                            f.write(default)
-            except Exception as e:
-                print(f"[Backend] Could not initialize {path}: {e}")
+        try:
+            d = os.path.dirname(self.LOG_FILE_PATH)
+            if d and not os.path.exists(d):
+                os.makedirs(d, exist_ok=True)
+            if not os.path.exists(self.LOG_FILE_PATH):
+                with open(self.LOG_FILE_PATH, "w", encoding="utf-8"):
+                    pass
+        except Exception as e:
+            print(f"[Backend] Could not initialize {self.LOG_FILE_PATH}: {e}")
 
     # -----------------------------------------------------------------
     # Capture loop

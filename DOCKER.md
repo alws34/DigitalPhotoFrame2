@@ -27,7 +27,6 @@ The Docker container runs the full stack: Python backend, React admin UI, and a 
 
 **Display modes** (controlled by `app.py`):
 - `--display pygame` — SDL2 fullscreen; default in Docker, ~10 MB overhead
-- `--display qt` — PySide6/Qt fullscreen; legacy, not included in the Docker image
 - `--headless` — backend + API only, no display window
 
 The MJPEG stream at `/api/stream` is still available for remote viewing from a phone, browser, or a second screen.
@@ -126,7 +125,7 @@ SDL_VIDEODRIVER=wayland docker compose -f docker-compose.yml -f docker-compose.p
 ./update.sh
 ```
 
-This does: `git pull` + `docker compose up --build`.
+This does: `git pull` + `scripts/build.sh` (test gate, then build) + `docker compose up -d`.
 
 ### Managing services
 
@@ -206,7 +205,7 @@ Or set `mqtt.host` to your broker's IP address (not `localhost`).
 | `Dockerfile` | Multi-stage build (Node frontend + Python 3.11-slim + SDL2 runtime) |
 | `docker-compose.yml` | Base compose config (works on Mac and Pi) |
 | `docker-compose.pi.yml` | Pi overlay: GPU, input, backlight, Wayland socket |
-| `requirements-docker.txt` | Python deps without PySide6/Qt (uses opencv-headless + pygame) |
+| `requirements-docker.txt` | Pinned Python deps (opencv-headless + pygame) |
 | `install_docker_kiosk.sh` | One-command Pi setup (Docker + device permissions + systemd service) |
 | `update.sh` | Pull + rebuild + restart |
 | `restart.sh` | Restart container |
@@ -218,7 +217,7 @@ Typical on Raspberry Pi 4 (2 GB):
 - **Docker container (Python + pygame):** ~150-250 MB RAM
 - **No browser overhead** — pygame renders directly, no Chromium running
 - **CPU:** 5-15% idle, 30-50% during transitions
-- **Disk:** ~500 MB for Docker image (vs ~2.5 GB with PySide6)
+- **Disk:** ~500 MB for Docker image
 
 ## Troubleshooting
 

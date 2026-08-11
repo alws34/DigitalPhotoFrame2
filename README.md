@@ -129,8 +129,6 @@ Utilities/Weather/     Open-Meteo weather provider
 
 **Stream path:** `PhotoFrameServer._send_frame()` bakes overlay + stats onto a BGR frame → `frame_to_stream`. A separate `_raw_frame_to_stream` serves the stream clean (no date/weather overlay) when the overlay toggle is off; stats still appear if enabled. Network delivery is `WebAPI/API.py`'s `_capture_loop` → `_jpeg_queue` → `mjpeg_stream()` (Flask MJPEG generator), gated by `idle_fps` (new-frame pushes go out immediately; otherwise the last JPEG is re-published at `idle_fps` Hz) and encoded per-frame at `stream_width`/`stream_height`/`image_quality_encoding`.
 
-> ⚠️ **`stream_fps` is currently unused** (verified 2026-08-11: not referenced anywhere in `WebAPI/`, `FrameServer/`, `app.py`, or `app_modes.py` — only present in the settings schema/defaults and exposed as an HA number entity via MQTT discovery). Changing it has no effect on the actual MJPEG output rate or bandwidth. The real levers are `idle_fps`, `stream_width`/`stream_height`, and `image_quality_encoding` — none of which are currently exposed via MQTT/HA, only through the Admin UI/API. Either wire `stream_fps` into the capture/stream loop for real, or remove it from the settings schema to stop it being a misleading dead control.
-
 ---
 
 ## Transition Effects
@@ -168,7 +166,7 @@ The frame publishes a heartbeat and responds to control messages. Enable in Sett
 - Overlay re-renders at most once per second or on weather change (cached RGBA alpha-blend)
 - Stats sampled every 5 seconds (psutil, fail-soft)
 - Idle streaming re-publishes last frame at `idle_fps` (default 5) — no flicker, no stall
-- To reduce CPU/bandwidth: lower `animation_fps` (local render smoothness), lower `idle_fps`, drop `stream_width`/`stream_height` (default 1920×1080), or lower `image_quality_encoding` (default 80). **`stream_fps` does not currently affect anything** — see the Architecture section above.
+- To reduce CPU/bandwidth: lower `animation_fps` (local render smoothness), lower `idle_fps`, drop `stream_width`/`stream_height` (default 1920×1080), or lower `image_quality_encoding` (default 80).
 
 ---
 

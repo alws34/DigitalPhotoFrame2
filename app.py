@@ -56,8 +56,8 @@ def main() -> None:
                    help="Path to settings JSON file.")
     p.add_argument("--headless", action="store_true",
                    help="Run without GUI (backend server only).")
-    p.add_argument("--display", choices=["pygame", "qt"],
-                   help="Display backend: pygame (lightweight) or qt (PySide6).")
+    p.add_argument("--display", choices=["pygame"],
+                   help="Display backend (pygame).")
     p.add_argument("--width", type=int, default=None,
                    help="Headless mode: override stream width.")
     p.add_argument("--height", type=int, default=None,
@@ -73,7 +73,7 @@ def main() -> None:
     config_events.on_settings_changed(apply_system_timezone)
     config_events.start_watcher()
 
-    from app_modes import _run_gui, _run_headless, _run_pygame
+    from app_modes import _run_headless, _run_pygame
 
     if args.headless:
         _run_headless(settings, _abs_path(args.settings), args.width, args.height)
@@ -83,20 +83,12 @@ def main() -> None:
         _run_pygame(settings, _abs_path(args.settings))
         return
 
-    if args.display == "qt":
-        _run_gui(settings, _abs_path(args.settings))
-        return
-
     try:
-        import pygame  # noqa: F401
         _run_pygame(settings, _abs_path(args.settings))
-    except ImportError:
-        _run_gui(settings, _abs_path(args.settings))
     except Exception as exc:
-        # pygame display init can fail (e.g. no Wayland surface yet). Fall back
-        # to headless so the web API stays alive even without a local display.
+        # pygame import/display init can fail (e.g. no Wayland surface yet).
+        # Fall back to headless so the web API stays alive without a display.
         logging.warning("pygame startup failed (%s), falling back to headless mode", exc)
-        from app_modes import _run_headless  # noqa: PLC0415
         _run_headless(settings, _abs_path(args.settings), None, None)
 
 

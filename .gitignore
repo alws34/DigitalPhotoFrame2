@@ -43,6 +43,12 @@ PhotoFrame.log
 # Runtime cache files
 openmeteo_weather_cache.json
 
+# Generated runtime state (SQLite is the live store; these are migration-only)
+metadata.json
+*.db
+*.db-journal
+assets/weather-icons/__fallback_*.png
+
 # Claude Code
 .claude/*
 !.claude/settings.json

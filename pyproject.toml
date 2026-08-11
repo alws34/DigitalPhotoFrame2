@@ -28,8 +28,7 @@ dependencies = [
     "paho.mqtt",
     "psutil",
     "qrcode[pil]",
-    "PySide6",
-    "pyheif",
+    "pygame",
     "tqdm",
     "pillow-heif",
     "waitress",
@@ -47,10 +46,6 @@ include = ["FrameServer*", "FrameGUI*", "Utilities*", "WebAPI*"]
 [tool.ruff]
 line-length = 88
 target-version = "py39"
-# ponytail: legacy Qt UI slated for deletion in the next optimization pass
-# (OPTIMIZATION_PLAN.md Phase 1) — excluded rather than fixed since the
-# files are going away, not staying. Remove this line when they're deleted.
-extend-exclude = ["FrameGUI/photoframe_view_qt.py", "FrameGUI/SettingsFrom"]
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I"]

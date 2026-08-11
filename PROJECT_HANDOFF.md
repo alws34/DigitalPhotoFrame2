@@ -396,3 +396,7 @@ This device (`photoframe`, `192.168.0.200`, Raspberry Pi, `network_mode: host`, 
 - No code changes made to this app this session - investigation and README only.
 - No settings changed on the live device.
 - HA-side config (the `camera.photo_frame` entity, the kiosk dashboard, MQTT discovery payloads for the *existing* broken `stream_fps` entity) intentionally left untouched - owner's call, revisit once #1/#2 above land here first.
+
+## Update — 2026-08-11 (later), item #1 resolved
+
+`stream_fps` removed rather than wired in: deleted from `config_store.py` (default + schema), `photoframe_settings.example.json`. Since HA/MQTT discovery is schema-driven (`_publish_schema_discovery` iterates `SETTINGS_SCHEMA`, skips only `MQTT_SKIP_PATHS`), removing the schema entry also removes it from HA discovery automatically - no `mqtt_bridge.py` change needed, HA-side config otherwise untouched as above. Re-verified independently before removing: `_capture_loop` in `WebAPI/API.py` only ever reads `idle_fps`, confirmed zero references to `stream_fps` left anywhere in the repo after removal. Items #2-4 (exposing the real levers to MQTT, stream resolution/quality defaults, `_jpeg_queue` multi-consumer question) remain open.

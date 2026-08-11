@@ -15,7 +15,7 @@ def _make_backend(*, authenticated=True, settings=None):
     backend.is_authenticated.return_value = authenticated
     backend.load_settings.return_value = settings or {
         "system": {"image_dir": "/data/images"},
-        "backend_configs": {"stream_fps": 10},
+        "backend_configs": {"idle_fps": 10},
     }
     backend.save_settings.return_value = None
     backend.LOG_FILE_PATH = "/tmp/test_photoframe.log"

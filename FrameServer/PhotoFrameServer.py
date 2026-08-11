@@ -1,7 +1,6 @@
 # region imports
 import hashlib
 import itertools
-import json
 import logging
 import math
 import os
@@ -968,31 +967,7 @@ class PhotoFrameServer(iFrame):
 
         logging.info("PhotoFrameServer.stop_services: done.")
 
-    # ------------- Metadata (server-owned) -------------
-
-    def _metadata_db_path(self) -> str:
-        return os.path.join("metadata.json")
-
-    def _load_metadata_db(self) -> dict:
-        p = self._metadata_db_path()
-        try:
-            with open(p, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {}
-        except Exception:
-            logging.exception("Failed to load metadata.json")
-            return {}
-
-    def _save_metadata_db(self, db: dict) -> None:
-        p = self._metadata_db_path()
-        tmp = p
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(db, f, ensure_ascii=True, indent=2, sort_keys=True)
-            os.replace(tmp, p)
-        except Exception:
-            logging.exception("Failed to save metadata.json")
+    # ------------- Metadata (server-owned, stored in SQLite images_metadata) -------------
 
     def _utcnow_iso(self) -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1033,9 +1008,10 @@ class PhotoFrameServer(iFrame):
             if not image_path or not os.path.isfile(image_path):
                 return
 
-            db = self._load_metadata_db()
+            from WebAPI.database import get_metadata, update_metadata
+
             file_hash = self.compute_image_hash(image_path)
-            entry = db.get(file_hash, {})
+            entry = get_metadata(file_hash) or {}
 
             try:
                 st = os.stat(image_path)
@@ -1096,8 +1072,7 @@ class PhotoFrameServer(iFrame):
                 "uploader": uploader,
             }
 
-            db[file_hash] = updated
-            self._save_metadata_db(db)
+            update_metadata(file_hash, updated)
 
             try:
                 self.current_metadata = updated

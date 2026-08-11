@@ -10,7 +10,6 @@
     "server_port": 80,
     "stream_width": 1920,
     "stream_height": 1080,
-    "stream_fps": 30,
     "idle_fps": 5,
     "supersecretkey": "CHANGE_ME_IN_PRODUCTION"
   },

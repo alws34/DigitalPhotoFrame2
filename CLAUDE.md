@@ -1,6 +1,6 @@
 # DigitalPhotoFrame
 
-DigitalPhotoFrame is a long-running Python photo-frame/compositor with an optional PySide6 fullscreen GUI and a Flask-served React admin UI. It targets Raspberry Pi and desktop Linux/Windows, so stability, low overhead, and graceful degradation matter as much as features.
+DigitalPhotoFrame is a long-running Python photo-frame/compositor with an optional pygame fullscreen display and a Flask-served React admin UI. It targets Raspberry Pi and desktop Linux/Windows, so stability, low overhead, and graceful degradation matter as much as features.
 
 ## Python Runtime
 
@@ -21,13 +21,13 @@ DigitalPhotoFrame is a long-running Python photo-frame/compositor with an option
 - Live settings values at runtime are **not** in `photoframe_settings.json` after first boot - they're in SQLite: `/data/photoframe.db` in Docker (`photoframe-data` volume), `WebAPI/database.db` bare-metal; table `app_settings`, single row `key='main'`, `value` = the full settings JSON blob. Read/write it through `config_store.py`, not by hand.
 - `pyproject.toml`: Python version, packaging, Ruff, and pytest config.
 - `frontend/package.json`: frontend scripts and JS dependency versions.
-- `PROJECT_HANDOFF.md` § 7-8: current known issues and the active handoff for in-progress work. Check § 8 specifically before touching the MJPEG stream path (`WebAPI/API.py` `_capture_loop`/`_jpeg_queue`/`mjpeg_stream`) or the settings schema in `config_store.py` - there's an open, already-diagnosed bug there (`stream_fps` is defined and exposed via the Admin UI and MQTT/HA discovery but never actually consumed anywhere in the runtime code) with a ranked fix list already written up.
+- `PROJECT_HANDOFF.md` § 7-8: current known issues and the active handoff for in-progress work. § 8's `stream_fps` dead-setting finding is resolved (removed from the settings schema, Admin UI, and HA discovery); the remaining open item there is the `_jpeg_queue`/`mjpeg_stream()` multi-consumer question in `WebAPI/API.py`.
 
 ## Architecture Map
 
-- `app.py`: entry point; selects GUI vs headless mode and wires together `PhotoFrameServer`, `Backend`, `MqttBridge`, and `AutoUpdater`.
+- `app.py`: entry point; selects pygame vs headless mode and wires together `PhotoFrameServer`, `Backend`, `MqttBridge`, and `AutoUpdater`.
 - `FrameServer/`: performance-sensitive render/compositor pipeline, image loading, transitions, overlays, and stream frame production.
-- `FrameGUI/`: PySide6 fullscreen client plus settings/editor widgets.
+- `FrameGUI/`: pygame fullscreen client (`photoframe_view_pygame.py`), including its own triple-tap on-screen settings panel — a second settings-editing UI alongside the React admin UI (see OPTIMIZATION_PLAN.md Phase 2 for the plan to unify these).
 - `WebAPI/`: Flask backend, auth, image/settings routes, and static serving of `frontend/dist`.
 - `frontend/`: Vite/React admin UI for login, stream, gallery, and settings pages.
 - `Utilities/`: weather providers, MQTT, scheduling, autoupdate, brightness, and platform helpers.

@@ -16,16 +16,16 @@ Shared instructions for Claude Code, Codex, Cline, Cursor, and other coding agen
 
 - `README.md`: product behavior, user-facing terminology, stream semantics.
 - `deploy.md`: backend/frontend deployment and build expectations.
-- `photoframe_settings.example.json`: settings shape and safe defaults.
-- `Settings.py`: settings loading, caching, and saving behavior.
+- `photoframe_settings.example.json`: settings shape and safe defaults (migration seed only; live settings are in SQLite).
+- `Utilities/config_store.py`: settings schema, defaults, and load/save behavior. `Settings.py` does not exist in this repo - if referenced anywhere (including older docs), that's stale.
 - `pyproject.toml`: Python version, package metadata, Ruff, and pytest config.
 - `frontend/package.json`: frontend scripts and JS dependency versions.
 
 ## Architecture
 
-- `app.py`: entry point; selects GUI vs headless mode and wires `PhotoFrameServer`, `Backend`, `MqttBridge`, and `AutoUpdater`.
+- `app.py`: entry point; selects pygame vs headless mode and wires `PhotoFrameServer`, `Backend`, `MqttBridge`, and `AutoUpdater`.
 - `FrameServer/`: compositor, image loading, transitions, overlays, and frame production.
-- `FrameGUI/`: PySide6 fullscreen UI and settings widgets.
+- `FrameGUI/`: pygame fullscreen UI (`photoframe_view_pygame.py`), including its own on-screen settings panel.
 - `WebAPI/`: Flask backend, auth, settings/images routes, and serving of `frontend/dist`.
 - `frontend/`: Vite/React admin UI for login, stream, gallery, and settings.
 - `Utilities/`: weather providers, MQTT, scheduling, autoupdate, brightness, and helpers.
