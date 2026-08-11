@@ -25,7 +25,7 @@
 
 The Docker container runs the full stack: Python backend, React admin UI, and a pygame/SDL2 display client. On the Pi, SDL2 renders frames fullscreen directly to the display via DRM/KMS or Wayland — no browser, no kiosk, no encoding overhead.
 
-**Display modes** (controlled by `app.py`):
+**Display modes** (controlled by `backend/app.py`):
 - `--display pygame` — SDL2 fullscreen; default in Docker, ~10 MB overhead
 - `--headless` — backend + API only, no display window
 
@@ -205,8 +205,8 @@ Or set `mqtt.host` to your broker's IP address (not `localhost`).
 | `Dockerfile` | Multi-stage build (Node frontend + Python 3.11-slim + SDL2 runtime) |
 | `docker-compose.yml` | Base compose config (works on Mac and Pi) |
 | `docker-compose.pi.yml` | Pi overlay: GPU, input, backlight, Wayland socket |
-| `requirements-docker.txt` | Pinned Python deps (opencv-headless + pygame) |
-| `install_docker_kiosk.sh` | One-command Pi setup (Docker + device permissions + systemd service) |
+| `backend/requirements-docker.txt` | Pinned Python deps (opencv-headless + pygame) |
+| `install.sh` | One-command Pi setup (Docker + device permissions + systemd service) |
 | `update.sh` | Pull + rebuild + restart |
 | `restart.sh` | Restart container |
 | `logs.sh` | Tail container logs |
@@ -228,7 +228,7 @@ docker compose logs photoframe
 ```
 
 Common issues:
-- Missing `photoframe_settings.json` — copy from example: `cp photoframe_settings.example.json photoframe_settings.json`
+- Missing `photoframe_settings.json` — copy from example: `cp config/photoframe_settings.example.json photoframe_settings.json`
 - Port 5002 in use — change `PHOTOFRAME_PORT` in `.env` or override in `docker-compose.yml`
 
 ### No display / black screen on Pi

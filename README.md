@@ -44,7 +44,7 @@ A long lasting memory of your life's moments.
 ```bash
 git clone https://github.com/alws34/DigitalPhotoFrame.git
 cd DigitalPhotoFrame
-cp photoframe_settings.example.json photoframe_settings.json
+cp config/photoframe_settings.example.json photoframe_settings.json
 ./scripts/build.sh
 docker compose up -d
 ```
@@ -56,7 +56,7 @@ Open in your browser:
 
 Add photos to `Images/` or upload via the Gallery page.
 
-> See [DOCKER.md](DOCKER.md) for Raspberry Pi deployment, device permissions, display modes, and troubleshooting.
+> See [docs/DOCKER.md](docs/DOCKER.md) for Raspberry Pi deployment, device permissions, display modes, and troubleshooting.
 
 ---
 
@@ -84,18 +84,18 @@ cd DigitalPhotoFrame
 # Python environment
 python3 -m venv env
 source env/bin/activate          # Windows: env\Scripts\activate
-pip install -e .
+pip install -e backend/
 
 # Frontend (only needed to serve the built UI via Flask)
 cd frontend && npm install && npm run build && cd ..
 
 # Settings
-cp photoframe_settings.example.json photoframe_settings.json
+cp config/photoframe_settings.example.json photoframe_settings.json
 
 # Run
 mkdir -p Images
-python app.py                    # fullscreen GUI
-python app.py --headless         # API + compositor only, no window
+python backend/app.py                    # fullscreen GUI
+python backend/app.py --headless         # API + compositor only, no window
 ```
 
 Admin UI: http://localhost:5002 — create an account on first launch.
@@ -113,19 +113,21 @@ Vite proxies API calls to the running Python backend automatically.
 ## Architecture
 
 ```
-app.py
+backend/                      Python project root (backend/pyproject.toml)
+├── app.py
 ├── PhotoFrameServer   FrameServer/ — image loading, transitions, overlay baking, frame_to_stream
 ├── Backend            WebAPI/      — Flask API, auth, gallery, settings, MJPEG stream
 ├── MqttBridge         Utilities/MQTT/
-├── ScreenScheduler    Utilities/screen_scheduler.py
-└── AutoUpdater        Utilities/autoupdate_utils.py
+├── AutoUpdater        Utilities/autoupdate_utils.py
+├── Utilities/sources/         Photo source drivers: local, immich, google_photos
+└── Utilities/Weather/         Open-Meteo weather provider
 
-frontend/              React + Vite admin UI (served from frontend/dist by Flask)
-Utilities/sources/     Photo source drivers: local, immich, google_photos
-Utilities/Weather/     Open-Meteo weather provider
+frontend/              React + Vite admin UI (served from ../frontend/dist by Flask; repo-root sibling of backend/)
+docs/                  Project documentation
+config/                photoframe_settings.example.json template
 ```
 
-**Settings** are stored in SQLite (`/data/photoframe.db` in Docker, `WebAPI/database.db` bare-metal). `photoframe_settings.json` is only used once for migration on first run — edits go through the admin UI or API.
+**Settings** are stored in SQLite (`/data/photoframe.db` in Docker, `backend/WebAPI/database.db` bare-metal). `photoframe_settings.json` is only used once for migration on first run — edits go through the admin UI or API.
 
 **Stream path:** `PhotoFrameServer._send_frame()` bakes overlay + stats onto a BGR frame → `frame_to_stream`. A separate `_raw_frame_to_stream` serves the stream clean (no date/weather overlay) when the overlay toggle is off; stats still appear if enabled. Network delivery is `WebAPI/API.py`'s `_capture_loop` → `_jpeg_queue` → `mjpeg_stream()` (Flask MJPEG generator), gated by `idle_fps` (new-frame pushes go out immediately; otherwise the last JPEG is re-published at `idle_fps` Hz) and encoded per-frame at `stream_width`/`stream_height`/`image_quality_encoding`.
 
@@ -135,7 +137,7 @@ Utilities/Weather/     Open-Meteo weather provider
 
 AlphaDissolve, BarnDoorClose, BarnDoorOpen, Blinds, Checkerboard, CrossZoom, IrisClose, IrisOpen, Linear, LumaWipe, PixelDissolve, Plain, Ripple, Scroll, Shrink, SoftWipe, SpinZoomFade, Stretch, Swirl, Wipe, ZoomBlur, ZoomIn, ZoomOut
 
-Effects are generators that yield `np.uint8 (H, W, 3)` frames. Add a new one in `FrameServer/Effects/` — it is auto-discovered.
+Effects are generators that yield `np.uint8 (H, W, 3)` frames. Add a new one in `backend/FrameServer/Effects/` — it is auto-discovered.
 
 ---
 
@@ -172,11 +174,11 @@ The frame publishes a heartbeat and responds to control messages. Enable in Sett
 
 ## Contributing
 
-Pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Run checks before submitting:
+Pull requests welcome. See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Run checks before submitting:
 
 ```bash
-env/bin/python -m ruff check .
-env/bin/python -m pytest
+cd backend && ../env/bin/python -m ruff check .
+cd backend && ../env/bin/python -m pytest
 cd frontend && npm run lint && npm run build
 ```
 

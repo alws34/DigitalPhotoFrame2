@@ -1,16 +1,16 @@
 ---
 paths:
-  - "Utilities/config_store.py"
-  - "photoframe_settings.example.json"
+  - "backend/Utilities/config_store.py"
+  - "config/photoframe_settings.example.json"
   - "photoframe_settings.json"
-  - "WebAPI/routes/settings.py"
-  - "config.py"
+  - "backend/WebAPI/routes/settings.py"
+  - "backend/config.py"
 ---
 
 # Settings Rules
 
-- Treat `photoframe_settings.example.json` as the public shape/defaults reference.
-- Treat `Utilities/config_store.py` as the persistence/cache source of truth (settings live in SQLite; `Settings.py` does not exist in this repo).
+- Treat `config/photoframe_settings.example.json` as the public shape/defaults reference.
+- Treat `backend/Utilities/config_store.py` as the persistence/cache source of truth (settings live in SQLite; `Settings.py` does not exist in this repo).
 - When adding, renaming, or removing settings, update every layer that depends on them:
   - example/default JSON
   - settings load/save behavior

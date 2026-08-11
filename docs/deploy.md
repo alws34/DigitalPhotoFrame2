@@ -23,13 +23,13 @@ The backend uses a local SQLite database along with modular Flask routes and Pil
 2. Install python dependencies:
 
    ```bash
-   pip install -r requirements.txt
+   pip install -r backend/requirements.txt
    ```
 
-   _Note: If requirements.txt is not present/updated, ensure you have: `flask flask-cors werkzeug numpy opencv-python pillow pillow-heif requests psutil`_
+   _Note: If backend/requirements.txt is not present/updated, ensure you have: `flask flask-cors werkzeug numpy opencv-python pillow pillow-heif requests psutil`_
 
 3. (Optional) Run the database migrations if they didn't run automatically:
-   The application now uses `WebAPI/database.py` which will initialize `database.db` upon the first run and migrate your existing `users.json` and `metadata.json`.
+   The application now uses `backend/WebAPI/database.py` which will initialize `database.db` upon the first run and migrate your existing `users.json` and `metadata.json`.
 
 ## 3. Setting up the Frontend
 
@@ -57,10 +57,10 @@ The frontend has been entirely rewritten using React and Vite for a touch-friend
 1. Start the main application from the project root:
 
    ```bash
-   python app.py --headless
+   python backend/app.py --headless
    ```
 
-   _(Use `--headless` if you don't need the local Qt GUI, which will only run the Flask server and FrameServer compositor)._
+   _(Use `--headless` if you don't need the local pygame display, which will only run the Flask server and FrameServer compositor)._
 
 2. The application will be available at:
    - **Frontend UI**: `http://localhost:5001`

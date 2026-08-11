@@ -153,9 +153,9 @@ mkdir -p "$APP_DIR/Images"
 echo "  Images/ directory ready."
 
 if [[ ! -f "$APP_DIR/photoframe_settings.json" ]] \
-   && [[ -f "$APP_DIR/photoframe_settings.example.json" ]]; then
-    cp "$APP_DIR/photoframe_settings.example.json" "$APP_DIR/photoframe_settings.json"
-    echo "  Copied photoframe_settings.example.json → photoframe_settings.json."
+   && [[ -f "$APP_DIR/config/photoframe_settings.example.json" ]]; then
+    cp "$APP_DIR/config/photoframe_settings.example.json" "$APP_DIR/photoframe_settings.json"
+    echo "  Copied config/photoframe_settings.example.json → photoframe_settings.json."
     echo "  Edit this file (or use the web UI) to set your location, MQTT, etc."
 fi
 

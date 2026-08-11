@@ -4,42 +4,45 @@ DigitalPhotoFrame is a long-running Python photo-frame/compositor with an option
 
 ## Python Runtime
 
-- Use only the project virtual environment at `env/`.
+- The Python project root is `backend/` (`backend/pyproject.toml`); the shared virtual environment lives at repo-root `env/`.
 - If `env/` is missing, create it from the repo root with `python -m venv env`.
 - Install Python dependencies into `env/`; never install project packages globally.
-- Preferred bootstrap command: `env/bin/pip install -e . pytest ruff`
-- Prefer `env/bin/python` and `env/bin/pip` in commands, scripts, and examples.
+- Preferred bootstrap command: `env/bin/pip install -e backend/ pytest ruff`
+- Prefer `env/bin/python` and `env/bin/pip` in commands, scripts, and examples, invoked with `backend/`-relative script paths (e.g. `env/bin/python backend/app.py`) or `cd backend` first for tools that read `pyproject.toml` from cwd (ruff, pytest).
 - Do not rely on system `python`, `pip`, `pytest`, or `ruff` for project work.
 - Claude Code project settings prepend the repo venv to `PATH` at session start, including Claude worktree sessions. Treat that as the default runtime for Python commands.
 
 ## Source Of Truth
 
 - `README.md`: product behavior, stream semantics, and user-facing terminology.
-- `deploy.md`: backend/frontend build and deployment flow.
-- `photoframe_settings.example.json`: settings shape and safe defaults (migration seed only - see below for the live store).
-- `Utilities/config_store.py`: settings schema, defaults, and load/save behavior. This is the actual settings module - it's imported by `app.py`, `WebAPI/API.py`, `WebAPI/routes/settings.py`, `FrameServer/PhotoFrameServer.py`, `Utilities/MQTT/mqtt_bridge.py`, `Utilities/AlbumManager.py`, `Utilities/config_events.py`, and the `FrameGUI` views/dialog. **`Settings.py` does not exist in this repo** - if you see it referenced anywhere (including older docs), that's stale; `config_store.py` replaced it.
-- Live settings values at runtime are **not** in `photoframe_settings.json` after first boot - they're in SQLite: `/data/photoframe.db` in Docker (`photoframe-data` volume), `WebAPI/database.db` bare-metal; table `app_settings`, single row `key='main'`, `value` = the full settings JSON blob. Read/write it through `config_store.py`, not by hand.
-- `pyproject.toml`: Python version, packaging, Ruff, and pytest config.
+- `docs/deploy.md`: backend/frontend build and deployment flow.
+- `config/photoframe_settings.example.json`: settings shape and safe defaults (migration seed only - see below for the live store).
+- `backend/Utilities/config_store.py`: settings schema, defaults, and load/save behavior. This is the actual settings module - it's imported by `backend/app.py`, `backend/WebAPI/API.py`, `backend/WebAPI/routes/settings.py`, `backend/FrameServer/PhotoFrameServer.py`, `backend/Utilities/MQTT/mqtt_bridge.py`, `backend/Utilities/AlbumManager.py`, `backend/Utilities/config_events.py`, and the `backend/FrameGUI` view. **`Settings.py` does not exist in this repo** - if you see it referenced anywhere (including older docs), that's stale; `config_store.py` replaced it.
+- Live settings values at runtime are **not** in `photoframe_settings.json` after first boot - they're in SQLite: `/data/photoframe.db` in Docker (`photoframe-data` volume), `backend/WebAPI/database.db` bare-metal; table `app_settings`, single row `key='main'`, `value` = the full settings JSON blob. Read/write it through `config_store.py`, not by hand.
+- `backend/pyproject.toml`: Python version, packaging, Ruff, and pytest config.
 - `frontend/package.json`: frontend scripts and JS dependency versions.
-- `PROJECT_HANDOFF.md` § 7-8: current known issues and the active handoff for in-progress work. § 8's `stream_fps` dead-setting finding is resolved (removed from the settings schema, Admin UI, and HA discovery); the remaining open item there is the `_jpeg_queue`/`mjpeg_stream()` multi-consumer question in `WebAPI/API.py`.
+- `docs/PROJECT_HANDOFF.md` § 7-8: current known issues and the active handoff for in-progress work. § 8's `stream_fps` dead-setting finding is resolved (removed from the settings schema, Admin UI, and HA discovery); the remaining open item there is the `_jpeg_queue`/`mjpeg_stream()` multi-consumer question in `backend/WebAPI/API.py`.
 
 ## Architecture Map
 
-- `app.py`: entry point; selects pygame vs headless mode and wires together `PhotoFrameServer`, `Backend`, `MqttBridge`, and `AutoUpdater`.
-- `FrameServer/`: performance-sensitive render/compositor pipeline, image loading, transitions, overlays, and stream frame production.
-- `FrameGUI/`: pygame fullscreen client (`photoframe_view_pygame.py`), including its own triple-tap on-screen settings panel — a second settings-editing UI alongside the React admin UI (see OPTIMIZATION_PLAN.md Phase 2 for the plan to unify these).
-- `WebAPI/`: Flask backend, auth, image/settings routes, and static serving of `frontend/dist`.
-- `frontend/`: Vite/React admin UI for login, stream, gallery, and settings pages.
-- `Utilities/`: weather providers, MQTT, scheduling, autoupdate, brightness, and platform helpers.
-- `Tests/`: pytest regression coverage.
+- `backend/`: the Python project root (`backend/pyproject.toml`). Everything below is relative to it unless noted.
+  - `app.py`: entry point; selects pygame vs headless mode and wires together `PhotoFrameServer`, `Backend`, `MqttBridge`, and `AutoUpdater`.
+  - `FrameServer/`: performance-sensitive render/compositor pipeline, image loading, transitions, overlays, and stream frame production.
+  - `FrameGUI/`: pygame fullscreen client (`photoframe_view_pygame.py`), including its own triple-tap on-screen settings panel — a second settings-editing UI alongside the React admin UI (see docs/OPTIMIZATION_PLAN.md Phase 2 for the plan to unify these).
+  - `WebAPI/`: Flask backend, auth, image/settings routes, and static serving of `../frontend/dist`.
+  - `Utilities/`: weather providers, MQTT, scheduling, autoupdate, brightness, and platform helpers.
+  - `Tests/`: pytest regression coverage.
+- `frontend/`: Vite/React admin UI for login, stream, gallery, and settings pages (repo-root sibling of `backend/`, not nested inside it).
+- `docs/`: project documentation (deploy, Docker, contributing, handoff, optimization plan).
+- `config/`: `photoframe_settings.example.json` template. The live per-device `photoframe_settings.json` stays at repo root (Docker bind-mounts it read-only as a one-time migration seed; see `docker-compose.yml`).
 
 ## Commands
 
-- `env/bin/python app.py`
-- `env/bin/python app.py --headless`
-- `env/bin/python -m pytest`
-- `env/bin/python -m ruff check .`
-- `env/bin/python -m ruff format .`
+- `env/bin/python backend/app.py`
+- `env/bin/python backend/app.py --headless`
+- `cd backend && ../env/bin/python -m pytest`
+- `cd backend && ../env/bin/python -m ruff check .`
+- `cd backend && ../env/bin/python -m ruff format .`
 - `cd frontend && npm run lint`
 - `cd frontend && npm run build`
 
@@ -47,7 +50,7 @@ DigitalPhotoFrame is a long-running Python photo-frame/compositor with an option
 
 - Prefer small, surgical changes. Preserve both fullscreen GUI mode and headless streaming mode unless the task explicitly changes them.
 - This app runs unattended. Fail soft on weather, network, MQTT, filesystem, and external API issues when possible: log clearly and keep the frame loop and API alive.
-- Treat `FrameServer/` and overlay code as hot paths. Avoid blocking I/O, unnecessary frame copies, and non-vectorized work in per-frame or per-transition code.
+- Treat `backend/FrameServer/` and overlay code as hot paths. Avoid blocking I/O, unnecessary frame copies, and non-vectorized work in per-frame or per-transition code.
 - Keep settings changes end-to-end. If you add, rename, or remove a setting, update the example JSON, `SettingsHandler` flow, backend read/write paths, and every UI/editor that exposes it.
 - Flask serves the built frontend from `frontend/dist`. After React UI changes, rebuild the frontend and keep route/API expectations aligned with Flask.
 - Keep paths and configuration portable. Do not hardcode local machine paths, secrets, or OS-specific assumptions when repo patterns already handle them.
@@ -58,7 +61,7 @@ DigitalPhotoFrame is a long-running Python photo-frame/compositor with an option
 
 - Python/backend changes: run the relevant checks from `env/` when feasible.
 - Frontend changes: run `cd frontend && npm run lint` and `cd frontend && npm run build` when feasible.
-- Rendering, stream, or settings changes: smoke test with `env/bin/python app.py --headless` when feasible, especially after touching stream delivery, settings reload, or frame generation.
+- Rendering, stream, or settings changes: smoke test with `env/bin/python backend/app.py --headless` when feasible, especially after touching stream delivery, settings reload, or frame generation.
 
 ## Claude Code Notes
 

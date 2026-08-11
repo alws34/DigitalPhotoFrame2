@@ -366,7 +366,7 @@ def load_settings(json_path: str | None = None) -> dict[str, Any]:
     # Empty DB — try JSON migration
     if json_path is None:
         json_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
             "photoframe_settings.json",
         )
     if os.path.exists(json_path):

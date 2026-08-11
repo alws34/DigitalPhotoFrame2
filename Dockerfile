@@ -52,16 +52,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements-docker.txt ./
-RUN pip install --no-cache-dir -r requirements-docker.txt
+COPY backend/requirements-docker.txt ./backend/requirements-docker.txt
+RUN pip install --no-cache-dir -r backend/requirements-docker.txt
 
 # Copy application code
-COPY app.py app_modes.py config.py pyproject.toml ./
-COPY FrameServer/ ./FrameServer/
-COPY FrameGUI/ ./FrameGUI/
-COPY WebAPI/ ./WebAPI/
-COPY Utilities/ ./Utilities/
-COPY arial.ttf ./
+COPY backend/app.py backend/app_modes.py backend/config.py backend/pyproject.toml ./backend/
+COPY backend/FrameServer/ ./backend/FrameServer/
+COPY backend/FrameGUI/ ./backend/FrameGUI/
+COPY backend/WebAPI/ ./backend/WebAPI/
+COPY backend/Utilities/ ./backend/Utilities/
+COPY backend/arial.ttf ./backend/arial.ttf
+COPY backend/assets/ ./backend/assets/
 
 # ==============================================================
 # Stage 3: Test gate — ruff + pytest against the exact runtime deps/source.
@@ -70,12 +71,12 @@ COPY arial.ttf ./
 # ==============================================================
 FROM pybase AS backend-test
 
-COPY Tests/ ./Tests/
+COPY backend/Tests/ ./backend/Tests/
 # --no-deps: requirements-docker.txt already installed the pinned runtime
 # deps above; this just registers WebAPI/Utilities/FrameServer/FrameGUI as
 # importable packages, same as the local `pip install -e .` dev bootstrap.
-RUN pip install --no-cache-dir --no-deps -e . && pip install --no-cache-dir ruff pytest
-RUN ruff check . && pytest -q
+RUN pip install --no-cache-dir --no-deps -e ./backend && pip install --no-cache-dir ruff pytest
+RUN cd backend && ruff check . && pytest -q
 
 # ==============================================================
 # Stage 4: Runtime image (pygame display + Flask backend)
@@ -100,5 +101,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -sf http://localhost:80/ || exit 1
 
 # Default: pygame display mode (use --headless for server-only)
-ENTRYPOINT ["python", "app.py"]
+ENTRYPOINT ["python", "backend/app.py"]
 CMD ["--display", "pygame"]

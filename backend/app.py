@@ -7,7 +7,7 @@ import logging
 import os
 import subprocess
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _disable_wifi_power_save() -> None:
