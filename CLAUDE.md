@@ -16,10 +16,12 @@ DigitalPhotoFrame is a long-running Python photo-frame/compositor with an option
 
 - `README.md`: product behavior, stream semantics, and user-facing terminology.
 - `deploy.md`: backend/frontend build and deployment flow.
-- `photoframe_settings.example.json`: settings shape and safe defaults.
-- `Settings.py`: settings loading, caching, and saving behavior.
+- `photoframe_settings.example.json`: settings shape and safe defaults (migration seed only - see below for the live store).
+- `Utilities/config_store.py`: settings schema, defaults, and load/save behavior. This is the actual settings module - it's imported by `app.py`, `WebAPI/API.py`, `WebAPI/routes/settings.py`, `FrameServer/PhotoFrameServer.py`, `Utilities/MQTT/mqtt_bridge.py`, `Utilities/AlbumManager.py`, `Utilities/config_events.py`, and the `FrameGUI` views/dialog. **`Settings.py` does not exist in this repo** - if you see it referenced anywhere (including older docs), that's stale; `config_store.py` replaced it.
+- Live settings values at runtime are **not** in `photoframe_settings.json` after first boot - they're in SQLite: `/data/photoframe.db` in Docker (`photoframe-data` volume), `WebAPI/database.db` bare-metal; table `app_settings`, single row `key='main'`, `value` = the full settings JSON blob. Read/write it through `config_store.py`, not by hand.
 - `pyproject.toml`: Python version, packaging, Ruff, and pytest config.
 - `frontend/package.json`: frontend scripts and JS dependency versions.
+- `PROJECT_HANDOFF.md` § 7-8: current known issues and the active handoff for in-progress work. Check § 8 specifically before touching the MJPEG stream path (`WebAPI/API.py` `_capture_loop`/`_jpeg_queue`/`mjpeg_stream`) or the settings schema in `config_store.py` - there's an open, already-diagnosed bug there (`stream_fps` is defined and exposed via the Admin UI and MQTT/HA discovery but never actually consumed anywhere in the runtime code) with a ranked fix list already written up.
 
 ## Architecture Map
 
