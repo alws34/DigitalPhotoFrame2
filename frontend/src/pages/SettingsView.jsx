@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import SettingsSection from "../components/settings/SettingsSection";
 import EffectsPanel from "../components/effects/EffectsPanel";
 import ProfilePicEditor from "../components/ProfilePicEditor";
+import NetworkPanel from "../components/settings/NetworkPanel";
 
 const HIDDEN_KEYS = new Set(["about"]);
 const MERGED_KEYS = new Set(["backend_configs", "autoupdate", "playback", "screen", "admin_ui", "stats", "effects", "stream"]);
@@ -16,7 +17,7 @@ const TAB_LABELS = {
   ui: "Frame UI",
 };
 
-const TAB_ORDER = ["system", "ui", "albums", "mqtt", "open_meteo", "profile"];
+const TAB_ORDER = ["system", "ui", "albums", "mqtt", "open_meteo", "network", "profile"];
 
 const SECTION_LABELS = {
   backend_configs: "Backend Config",
@@ -31,6 +32,7 @@ const SECTION_LABELS = {
 
 function tabLabel(key) {
   if (key === "profile") return "Profile";
+  if (key === "network") return "Network";
   return TAB_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -119,11 +121,11 @@ export default function SettingsView() {
     return () => es.close();
   }, [fetchSettings]);
 
-  // Build ordered tab list, injecting "profile" as a synthetic tab
+  // Build ordered tab list, injecting "profile" and "network" as synthetic tabs
   const tabs = useMemo(() => {
     if (!settings) return [];
     const keys = new Set(Object.keys(settings).filter((k) => !HIDDEN_KEYS.has(k) && !MERGED_KEYS.has(k)));
-    const pinned = TAB_ORDER.filter((k) => keys.has(k) || k === "profile");
+    const pinned = TAB_ORDER.filter((k) => keys.has(k) || k === "profile" || k === "network");
     const pinnedSet = new Set(pinned);
     const rest = [...keys].filter((k) => !pinnedSet.has(k)).sort();
     return [...pinned, ...rest];
@@ -201,8 +203,8 @@ export default function SettingsView() {
               {status}
             </span>
           )}
-          {/* Don't show Save on profile tab (picture uploads are immediate) */}
-          {activeTab !== "profile" && (
+          {/* Don't show Save on profile/network tabs — nothing there is persisted settings */}
+          {activeTab !== "profile" && activeTab !== "network" && (
             <button className="primary" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save"}
             </button>
@@ -237,7 +239,10 @@ export default function SettingsView() {
           </div>
         )}
 
-        {activeTab && activeTab !== "profile" && (
+        {/* Network tab — synthetic, no settings key */}
+        {activeTab === "network" && <NetworkPanel />}
+
+        {activeTab && activeTab !== "profile" && activeTab !== "network" && (
           <>
             {/* Primary section */}
             {settings[activeTab] && typeof settings[activeTab] === "object" && !Array.isArray(settings[activeTab]) && (
