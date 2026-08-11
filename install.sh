@@ -169,7 +169,8 @@ echo "  (This may take a few minutes on the first run while the image builds.)"
 echo ""
 cd "$APP_DIR"
 
-docker compose -f docker-compose.yml -f docker-compose.pi.yml up -d --build
+"$APP_DIR/scripts/build.sh" -f docker-compose.yml -f docker-compose.pi.yml
+docker compose -f docker-compose.yml -f docker-compose.pi.yml up -d
 
 echo ""
 echo "  Container started."
@@ -188,7 +189,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 echo "Pulling latest changes..."
 git pull --ff-only
 echo "Rebuilding container..."
-docker compose -f docker-compose.yml -f docker-compose.pi.yml up -d --build
+./scripts/build.sh -f docker-compose.yml -f docker-compose.pi.yml
+docker compose -f docker-compose.yml -f docker-compose.pi.yml up -d
 echo "Done. Container is running the latest version."
 SCRIPT
 

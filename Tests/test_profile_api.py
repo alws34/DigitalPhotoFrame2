@@ -1,16 +1,17 @@
 """Tests for /api/profile/picture endpoints."""
 import io
 import os
-import tempfile
 import unittest.mock as mock
 
 import pytest
+
 
 # Minimal Flask app fixture that registers only the profile blueprint
 @pytest.fixture()
 def profile_app(tmp_path):
     """Create a minimal Flask app with the profile blueprint registered."""
     from flask import Flask
+
     from WebAPI.routes.profile import profile_bp
 
     app = Flask(__name__)
@@ -132,6 +133,7 @@ def test_delete_picture_nonexistent_returns_200(profile_app):
 
 def test_upload_requires_auth(tmp_path):
     from flask import Flask
+
     from WebAPI.routes.profile import profile_bp
 
     app = Flask(__name__)
@@ -155,6 +157,7 @@ def test_upload_requires_auth(tmp_path):
 
 def test_delete_requires_auth(tmp_path):
     from flask import Flask
+
     from WebAPI.routes.profile import profile_bp
 
     app = Flask(__name__)

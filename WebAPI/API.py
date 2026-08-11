@@ -1,7 +1,7 @@
 import hashlib
 import json
+import logging
 import os
-import platform
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -26,6 +26,8 @@ from tqdm import tqdm
 from werkzeug.exceptions import HTTPException
 
 from FrameServer.PhotoFrameServer import iFrame
+from Utilities.config_store import load_settings as _cs_load
+from Utilities.config_store import save_settings as _cs_save
 from WebAPI.WebUtils.auth_security import (
     RateLimiter,
     UserStore,
@@ -37,7 +39,6 @@ from WebAPI.WebUtils.auth_security import (
 # HEIC support
 # ---------------------------------------------------------------------
 has_pillow_heif = False
-has_pyheif = False
 
 try:
     from pillow_heif import register_heif_opener
@@ -50,18 +51,6 @@ except ImportError:
 except Exception as e:
     print(f"[Backend] Could not register HEIF/HEIC plugin: {e}")
     has_pillow_heif = False
-
-import logging
-
-from Utilities.config_store import load_settings as _cs_load
-from Utilities.config_store import save_settings as _cs_save
-
-if platform.system() in ("Linux", "Darwin"):
-    try:
-        import pyheif
-        has_pyheif = True
-    except ImportError:
-        has_pyheif = False
 
 
 # ---------------------------------------------------------------------
@@ -796,10 +785,3 @@ class APIServer:
                 use_reloader=False,
                 threaded=True,
             )
-
-
-if __name__ == "__main__":
-    backend = Backend(frame=None)
-    backend.start()
-    while True:
-        time.sleep(10)

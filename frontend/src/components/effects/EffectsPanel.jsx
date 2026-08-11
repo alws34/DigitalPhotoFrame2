@@ -18,7 +18,11 @@ const PRESET_CSS = {
 
 function HexInput({ label, value, onChange }) {
   const [raw, setRaw] = useState(value);
-  useEffect(() => setRaw(value), [value]);
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setRaw(value);
+  }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -65,11 +69,10 @@ function Slider({ label, value, min, max, step, onChange }) {
 
 export default function EffectsPanel({ effects, onChange, originalEffects }) {
   const [snapshot, setSnapshot] = useState(null);
-  const [loadingSnap, setLoadingSnap] = useState(false);
+  const [loadingSnap, setLoadingSnap] = useState(true);
   const hasFetchedRef = useRef(false);
 
-  const fetchSnapshot = useCallback(() => {
-    setLoadingSnap(true);
+  const loadSnapshot = useCallback(() => {
     fetch('/api/stream/snapshot', { credentials: 'include' })
       .then((r) => r.ok ? r.blob() : null)
       .then((blob) => { if (blob) setSnapshot(URL.createObjectURL(blob)); })
@@ -77,9 +80,14 @@ export default function EffectsPanel({ effects, onChange, originalEffects }) {
       .finally(() => setLoadingSnap(false));
   }, []);
 
+  const fetchSnapshot = useCallback(() => {
+    setLoadingSnap(true);
+    loadSnapshot();
+  }, [loadSnapshot]);
+
   useEffect(() => {
-    if (!hasFetchedRef.current) { hasFetchedRef.current = true; fetchSnapshot(); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!hasFetchedRef.current) { hasFetchedRef.current = true; loadSnapshot(); }
+  }, [loadSnapshot]);
 
   const set = (key, val) => onChange(`effects.${key}`, val);
 

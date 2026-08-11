@@ -10,9 +10,9 @@ COPY frontend/ ./
 RUN npm run build
 
 # ==============================================================
-# Stage 2: Python runtime (pygame display + Flask backend)
+# Stage 2: Shared Python base (system deps + app source, no entrypoint yet)
 # ==============================================================
-FROM python:3.11-slim
+FROM python:3.11-slim AS pybase
 
 LABEL maintainer="DigitalPhotoFrame"
 LABEL description="Digital Photo Frame - pygame display + Flask backend"
@@ -56,14 +56,33 @@ COPY requirements-docker.txt ./
 RUN pip install --no-cache-dir -r requirements-docker.txt
 
 # Copy application code
-ENV PF_DB_PATH=/data/photoframe.db
-
 COPY app.py app_modes.py config.py pyproject.toml ./
 COPY FrameServer/ ./FrameServer/
 COPY FrameGUI/ ./FrameGUI/
 COPY WebAPI/ ./WebAPI/
 COPY Utilities/ ./Utilities/
 COPY arial.ttf ./
+
+# ==============================================================
+# Stage 3: Test gate — ruff + pytest against the exact runtime deps/source.
+# Built and run explicitly (scripts/build.sh) before the real image; not part
+# of the default build graph, so a plain `docker build .` does not run it.
+# ==============================================================
+FROM pybase AS backend-test
+
+COPY Tests/ ./Tests/
+# --no-deps: requirements-docker.txt already installed the pinned runtime
+# deps above; this just registers WebAPI/Utilities/FrameServer/FrameGUI as
+# importable packages, same as the local `pip install -e .` dev bootstrap.
+RUN pip install --no-cache-dir --no-deps -e . && pip install --no-cache-dir ruff pytest
+RUN ruff check . && pytest -q
+
+# ==============================================================
+# Stage 4: Runtime image (pygame display + Flask backend)
+# ==============================================================
+FROM pybase AS runtime
+
+ENV PF_DB_PATH=/data/photoframe.db
 
 # Copy built frontend from stage 1
 COPY --from=frontend-build /build/frontend/dist ./frontend/dist

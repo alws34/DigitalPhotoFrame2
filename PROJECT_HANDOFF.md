@@ -348,3 +348,51 @@ Recommended priorities for the incoming team:
    - Add API integration tests around auth, settings, uploads, and metadata.
    - Add frontend smoke tests for login, gallery, and settings.
    - Add at least one headless compositor smoke test.
+
+# 8. Handoff — 2026-08-11 Streaming/Resource Investigation
+
+Scope for the next session: fix the MJPEG stream's resource footprint and the dead-setting bug found below. Not in scope: anything on the Home Assistant side (owner explicitly wants HA config untouched for this), server/infra migration (unrelated, separate effort).
+
+## How this was found
+
+This device (`photoframe`, `192.168.0.200`, Raspberry Pi, `network_mode: host`, container port 80) backs a Home Assistant `camera.photo_frame` entity via MJPEG, embedded in a kiosk dashboard on a separate Pi. Diagnosing unrelated Home Assistant VM sluggishness (on a different physical host) led to tracing sustained ~50Mbps + high CPU on the HA VM back to its continuous ingestion of this device's `/api/stream`. Confirmed via `tcpdump` on the HA host's bridge interface (steady bidirectional traffic between the HA VM and `192.168.0.200:80`) and cross-checked against this repo's actual code.
+
+## Confirmed facts (read directly from the running container, not assumed)
+
+- Live settings are in `/data/photoframe.db` (Docker volume `photoframe-data`), table `app_settings`, single row `key='main'`, `value` = one JSON blob. `photoframe_settings.json` is migration-only (per README/`config.py`), not authoritative after first run.
+- Relevant live values at time of investigation:
+  ```json
+  "backend_configs": {
+    "host": "0.0.0.0", "server_port": 80,
+    "idle_fps": 5, "stream_fps": 30,
+    "stream_width": 1920, "stream_height": 1080
+  }
+  ```
+  (`image_quality_encoding` defaults to `80`, set at root or `system` level, read in `WebAPI/API.py` ~line 255.)
+- **`stream_fps` is dead code.** Repo-wide grep (`.py`, `.json`, `.jsx`, `.tsx`, `.ts`, `.js`, excluding `node_modules`) turns up exactly 3 hits, all definition/schema, zero consumption:
+  - `Utilities/config_store.py:62` — default value
+  - `Utilities/config_store.py:175` — admin-UI settings schema (`"Stream FPS"`, slider, min 1 max 60)
+  - `photoframe_settings.example.json:13` — example/migration seed
+  - It is also exposed as an HA number entity via MQTT discovery (`Utilities/MQTT/mqtt_bridge.py`), so it's user-facing in two places (Admin UI + Home Assistant) while doing literally nothing.
+- **Actual streaming signal path** (`WebAPI/API.py`):
+  - `_capture_loop()` (~line 374): reads `idle_fps` (not `stream_fps`), computes `interval = 1/idle_fps`. On a genuinely new composited frame (`_new_frame_ev`) it encodes immediately; otherwise it re-publishes the last JPEG once per `interval`.
+  - JPEG encode (~line 408, ~line 444): `cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, self.encoding_quality])` at `stream_width` × `stream_height`.
+  - `_jpeg_queue` (line 261, `Queue(maxsize=30)`) — **single shared queue**, fed by `_capture_loop`, drained by `mjpeg_stream()` (line 529) via blocking `.get(timeout=1.0)` per connected client. Not designed/verified for multiple simultaneous consumers — if HA's camera integration and something else (e.g. a kiosk hitting `/api/stream` directly) both connect, they compete for items off one queue rather than each getting an independent copy. Needs checking - may cause stutter, or may cause double the actual encode-side workload if each generator instance re-triggers frame production. Not fully traced this session.
+  - So real steady-state rate is `idle_fps` (5/s design intent), each frame a `1920×1080` JPEG at quality 80. That alone plausibly accounts for most of the measured bandwidth even with `idle_fps` behaving correctly — resolution/quality are the bigger levers than fps once you're already down at 5fps.
+
+## What to actually do (ranked)
+
+1. **Resolve the `stream_fps` dead-setting bug** — either wire it into `_capture_loop`'s interval calculation for real (replace/blend with `idle_fps`, or use it as the cap during active transitions vs. `idle_fps` at rest), or remove it from `config_store.py`'s schema and MQTT discovery so it stops being a control that silently does nothing. Don't leave it as-is.
+2. **Expose the settings that actually matter to MQTT/HA discovery**: `idle_fps`, `stream_width`/`stream_height`, `image_quality_encoding`. Right now the only remotely-tunable knob (via HA) is the broken one; the real ones require SSH + direct DB/API edits.
+3. **Reconsider default stream resolution/quality for a "live view" consumer.** `1920×1080` @ quality 80 is presumably sized for the physical display, but the MJPEG stream is a *separate* path (`frame_to_stream`, not the direct-to-display SDL2/pygame render) consumed remotely by HA/kiosk — it doesn't need to match the physical screen's native res. A materially smaller/lighter default (e.g. 960×540, quality 60) would cut bandwidth roughly 3-4x with no visible quality loss on a "preview" use case, without touching how the frame looks on the actual device.
+4. **Verify multi-consumer behavior on `_jpeg_queue` / `mjpeg_stream()`.** Confirm whether the single shared `Queue` is safe/correct for N simultaneous HTTP clients, or if it needs a per-client queue/broadcast fanout instead (e.g. each `mjpeg_stream()` call registering its own subscriber queue that `_capture_loop` pushes to, rather than one global queue every client drains from).
+
+## Already done (don't redo)
+
+- `README.md` Architecture + Performance sections corrected today to stop claiming `stream_fps` does anything - now documents the real `idle_fps`/resolution/quality path and explicitly flags the dead setting. Treat README as accurate as of 2026-08-11.
+
+## Not done / explicitly deferred
+
+- No code changes made to this app this session - investigation and README only.
+- No settings changed on the live device.
+- HA-side config (the `camera.photo_frame` entity, the kiosk dashboard, MQTT discovery payloads for the *existing* broken `stream_fps` entity) intentionally left untouched - owner's call, revisit once #1/#2 above land here first.

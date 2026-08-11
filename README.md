@@ -45,7 +45,8 @@ A long lasting memory of your life's moments.
 git clone https://github.com/alws34/DigitalPhotoFrame.git
 cd DigitalPhotoFrame
 cp photoframe_settings.example.json photoframe_settings.json
-docker compose up --build
+./scripts/build.sh
+docker compose up -d
 ```
 
 Open in your browser:

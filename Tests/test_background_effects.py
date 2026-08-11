@@ -4,7 +4,6 @@ import pytest
 
 from FrameServer.image_handler import PRESETS, Image_Utils, _hex_to_bgr
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------

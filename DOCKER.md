@@ -43,8 +43,11 @@ The MJPEG stream at `/api/stream` is still available for remote viewing from a p
 
 ```bash
 cd DigitalPhotoFrame
-docker compose up --build
+./scripts/build.sh
+docker compose up -d
 ```
+
+`scripts/build.sh` runs the test gate (ruff + pytest, in Docker) before building the image. On failure it asks whether to build anyway.
 
 On Mac, pygame runs with a dummy display inside the container (no window appears). Use the admin UI and stream endpoint to interact with the app.
 
@@ -61,7 +64,7 @@ docker compose down
 ### Development workflow
 
 1. Edit Python backend or React frontend code
-2. Rebuild: `docker compose up --build`
+2. Rebuild: `./scripts/build.sh && docker compose up -d`
 3. The multi-stage build recompiles the frontend and restarts the backend
 
 For faster frontend iteration, run the Vite dev server separately:
@@ -293,7 +296,7 @@ groups $USER
 
 ```bash
 docker compose down -v          # Remove container + volumes
-docker compose up --build       # Full rebuild
+./scripts/build.sh && docker compose up -d   # Full rebuild (runs test gate first)
 ```
 
 ## Migrating from bare-metal install

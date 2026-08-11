@@ -16,8 +16,10 @@ class Notifications:
     def _fire(self):
         # fire outside the lock to avoid reentrancy risk
         for cb in list(self._listeners):
-            try: cb()
-            except Exception: pass
+            try:
+                cb()
+            except Exception:
+                pass
 
     def add(self, text: str, level: str = "info"):
         item = {"ts": datetime.now().isoformat(timespec="seconds"),

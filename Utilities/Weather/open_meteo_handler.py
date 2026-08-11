@@ -120,11 +120,14 @@ class OpenMeteoWeatherHandler:
             "forecast_days": 1,
         }
         tu = self._get(cfg, "temperature_unit")
-        if tu: params["temperature_unit"] = tu
+        if tu:
+            params["temperature_unit"] = tu
         wu = self._get(cfg, "wind_speed_unit")
-        if wu: params["wind_speed_unit"] = wu
+        if wu:
+            params["wind_speed_unit"] = wu
         pu = self._get(cfg, "precipitation_unit")
-        if pu: params["precipitation_unit"] = pu
+        if pu:
+            params["precipitation_unit"] = pu
 
         try:
             url = "https://api.open-meteo.com/v1/forecast"

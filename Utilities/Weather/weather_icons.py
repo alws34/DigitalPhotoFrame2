@@ -138,11 +138,11 @@ class WeatherIconResolver:
         # Pillow >= 8: use textbbox; older fallback uses font.getbbox or getlength
         def _measure(draw, text, font):
             if hasattr(draw, "textbbox"):
-                l, t, r, b = draw.textbbox((0, 0), text, font=font)
-                return r - l, b - t
+                left, t, r, b = draw.textbbox((0, 0), text, font=font)
+                return r - left, b - t
             if hasattr(font, "getbbox"):
-                l, t, r, b = font.getbbox(text)
-                return r - l, b - t
+                left, t, r, b = font.getbbox(text)
+                return r - left, b - t
             # Last resort: approximate using textlength and font size
             w = int(getattr(draw, "textlength", lambda *a, **k: len(text) * size * 0.5)(text, font=font))
             h = int(size * 0.8)

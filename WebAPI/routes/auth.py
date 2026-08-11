@@ -46,7 +46,6 @@ def signup():
 
 @auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
-    backend = current_app.config['backend']
     data = request.json or {}
     email = (data.get("email") or "").strip().lower()
     new_password = data.get("password") or ""

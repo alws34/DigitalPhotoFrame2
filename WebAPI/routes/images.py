@@ -118,7 +118,6 @@ def upload_files():
         return jsonify({"error": "No file parameter"}), 400
 
     files = request.files.getlist("file[]") or request.files.getlist("file")
-    metadata_db = backend.load_metadata_db()
     uploaded_files_res = []
 
     for idx, file in enumerate(files):

@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # Mock psutil before importing mqtt_bridge
 sys.modules['psutil'] = MagicMock()
 
-from Utilities.MQTT.mqtt_bridge import MqttBridge
+from Utilities.MQTT.mqtt_bridge import MqttBridge  # noqa: E402
 
 
 class TestMqttWatchdog(unittest.TestCase):
