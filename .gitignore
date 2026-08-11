@@ -47,7 +47,7 @@ openmeteo_weather_cache.json
 metadata.json
 *.db
 *.db-journal
-assets/weather-icons/__fallback_*.png
+backend/assets/weather-icons/__fallback_*.png
 
 # Claude Code
 .claude/*
