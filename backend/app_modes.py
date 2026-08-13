@@ -196,7 +196,11 @@ def _run_pygame(settings: Dict[str, Any], settings_path: str) -> None:
         while view.get_is_running() and srv.get_is_running():
             if not view.process_events():
                 break
-            view.render_pending_frame()
+            # Skip compositing/flip while the kiosk webview fully covers the
+            # screen -- otherwise this loop keeps burning a core on frames
+            # nobody can see, starving WebKit's own rendering.
+            if not view.is_kiosk_visible():
+                view.render_pending_frame()
             time.sleep(0.016)  # ~60 Hz event polling
     except KeyboardInterrupt:
         pass

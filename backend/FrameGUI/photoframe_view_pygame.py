@@ -13,8 +13,10 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import signal
 import socket
 import subprocess
+import sys
 import threading
 import time as _time
 from typing import Any, Dict, List, Optional, Tuple
@@ -229,6 +231,20 @@ class PhotoFramePygame:
         self._screen_brightness_pct: int = 100
         self._brightness_dirty: bool = False  # signals main thread to redraw after brightness change
 
+        # Kiosk webview: kept alive and hidden/shown via SIGUSR1 rather than
+        # respawned per triple-tap, so only the very first open pays the
+        # GTK/WebKit2 cold-start cost.
+        self._kiosk_proc: "subprocess.Popen | None" = None
+        # True while the kiosk webview fully covers this view. The main loop
+        # skips render_pending_frame() while this is set -- otherwise this
+        # process keeps compositing/flipping frames at ~60Hz underneath a
+        # webview the user can't see, starving WebKitWebProcess of CPU and
+        # making the settings UI (scrolling, popups) janky on the Pi's 4
+        # cores. webview_launcher.py signals SIGUSR2 back to this process
+        # (its parent) when it hides itself again.
+        self._kiosk_visible: bool = False
+        signal.signal(signal.SIGUSR2, self._on_kiosk_hidden)
+
         # WiFi state (Network tab)
         import shutil as _shutil
         self._wifi_available: bool = bool(_shutil.which("nmcli"))
@@ -270,6 +286,8 @@ class PhotoFramePygame:
 
         from Utilities.config_events import on_settings_changed as _on_sc
         _on_sc(self._on_settings_changed_pygame)
+
+        self._spawn_kiosk_process()  # pre-warm so the first triple-tap isn't a cold start
 
     def _on_settings_changed_pygame(self, new_settings: dict) -> None:
         try:
@@ -1113,7 +1131,49 @@ class PhotoFramePygame:
         self._tap_times.append(now)
         if len(self._tap_times) >= 3:
             self._tap_times.clear()
-            self._open_panel()
+            self._open_kiosk()
+
+    def _open_kiosk(self) -> None:
+        """Triple-tap entry point: reveal the pre-warmed kiosk webview, or
+        spawn it if it's not running (first-ever tap, or the process died)."""
+        if self._kiosk_proc is None or self._kiosk_proc.poll() is not None:
+            self._spawn_kiosk_process()
+            return
+        try:
+            os.kill(self._kiosk_proc.pid, signal.SIGUSR1)
+            self._kiosk_visible = True
+        except ProcessLookupError:
+            self._spawn_kiosk_process()
+
+    def _on_kiosk_hidden(self, _signum, _frame) -> None:
+        self._kiosk_visible = False
+
+    def is_kiosk_visible(self) -> bool:
+        return self._kiosk_visible
+
+    def _spawn_kiosk_process(self) -> None:
+        """Launch the GTK+WebKit2 kiosk webview, auto-logged-in via a
+        one-time in-process token. Runs as a separate top-level window;
+        labwc brings it to front while this pygame process keeps rendering
+        underneath. Stays alive hidden between triple-taps (see
+        webview_launcher.py's SIGUSR1 handler) so only this first launch
+        pays the GTK/WebKit2 cold-start cost."""
+        try:
+            from WebAPI.routes.kiosk import mint_kiosk_token
+            token = mint_kiosk_token()
+            port = self.settings.get("backend_configs", {}).get("server_port", 80)
+            base = "http://127.0.0.1" if port == 80 else f"http://127.0.0.1:{port}"
+            url = f"{base}/api/kiosk/login?token={token}"
+            launcher = os.path.join(os.path.dirname(__file__), "kiosk", "webview_launcher.py")
+            # Tried dropping LIBGL_ALWAYS_SOFTWARE for just this child so
+            # WebKit could use the real VC4/V3D GPU instead of Mesa llvmpipe.
+            # Corrupted the display (scanline garbage) -- labwc's own DRM/KMS
+            # ownership conflicts with a second real GPU context. Reverted to
+            # inheriting the full (software-forced) environment.
+            self._kiosk_proc = subprocess.Popen([sys.executable, launcher, url])
+        except Exception:
+            logging.exception("[PhotoFramePygame] Failed to launch kiosk webview")
+            self._kiosk_proc = None
 
     def _open_panel(self) -> None:
         try:

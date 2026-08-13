@@ -646,6 +646,7 @@ class APIServer:
         from WebAPI.routes.albums import albums_bp
         from WebAPI.routes.auth import auth_bp
         from WebAPI.routes.images import images_bp
+        from WebAPI.routes.kiosk import kiosk_bp
         from WebAPI.routes.maintenance import maintenance_bp
         from WebAPI.routes.network import network_bp
         from WebAPI.routes.profile import profile_bp
@@ -660,6 +661,7 @@ class APIServer:
         self.app.register_blueprint(stream_bp)
         self.app.register_blueprint(maintenance_bp)
         self.app.register_blueprint(network_bp)
+        self.app.register_blueprint(kiosk_bp)
         self.app.register_blueprint(sources_bp)
         self.app.register_blueprint(albums_bp)
         self.app.register_blueprint(profile_bp)

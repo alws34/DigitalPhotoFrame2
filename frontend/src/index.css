@@ -15,7 +15,11 @@
   /* Glass */
   --glass-bg:      rgba(255, 255, 255, 0.05);
   --glass-border:  rgba(255, 255, 255, 0.10);
-  --glass-blur:    20px;
+  /* 0, not 20px: WebKitGTK on the Pi runs Cairo software compositing
+     (hardware_acceleration_policy=NEVER, see webview_launcher.py) --
+     backdrop-filter blur recomputes every scroll/repaint frame on the CPU
+     and was the cause of laggy scrolling and freezes opening popups. */
+  --glass-blur:    0px;
   --glass-radius:  14px;
   --glass-shadow:  0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255,255,255,0.06) inset;
 
@@ -32,7 +36,7 @@
   --danger: #f43f5e;
 
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 15px;
+  font-size: 18px;
   color: var(--text-primary);
 }
 
@@ -67,7 +71,8 @@ input, select, textarea {
   border: 1px solid var(--input-border);
   border-radius: 8px;
   color: var(--text-primary);
-  padding: 7px 11px;
+  padding: 12px 14px;
+  min-height: 44px;
   width: 100%;
   transition: border-color var(--transition), box-shadow var(--transition);
   font-family: inherit;
@@ -79,7 +84,21 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 input[type="checkbox"] { width: auto; accent-color: var(--accent); }
-input[type="range"] { padding: 0; background: transparent; accent-color: var(--accent); }
+input[type="range"] { padding: 0; background: transparent; accent-color: var(--accent); min-height: 32px; }
+
+/* WebKitGTK renders <select> with native GTK (light) chrome regardless of
+   the background/color above unless appearance is reset -- that's what
+   made dropdown text unreadable on the kiosk. Custom arrow replaces the
+   native one appearance:none removes. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='rgba(255,255,255,0.5)'%3E%3Cpath d='M5.5 7.5l4.5 4.5 4.5-4.5' stroke='rgba(255,255,255,0.5)' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 36px;
+}
 
 /* ── Buttons ────────────────────────────────────────── */
 button {
@@ -88,7 +107,8 @@ button {
   border-radius: 8px;
   background: var(--glass-bg);
   color: var(--text-primary);
-  padding: 8px 18px;
+  padding: 12px 20px;
+  min-height: 44px;
   font-family: inherit;
   font-size: inherit;
   font-weight: 500;
@@ -120,9 +140,9 @@ button.danger:hover { background: rgba(244,63,94,0.12); box-shadow: none; }
 .toggle { position: relative; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .toggle input { display: none; }
 .toggle-track {
-  width: 40px; height: 22px;
+  width: 52px; height: 28px;
   background: rgba(255, 255, 255, 0.10);
-  border-radius: 11px;
+  border-radius: 14px;
   border: 1px solid var(--glass-border);
   transition: background var(--transition), border-color var(--transition);
   position: relative;
@@ -135,13 +155,13 @@ button.danger:hover { background: rgba(244,63,94,0.12); box-shadow: none; }
   content: "";
   position: absolute;
   top: 2px; left: 2px;
-  width: 16px; height: 16px;
+  width: 22px; height: 22px;
   border-radius: 50%;
   background: white;
   transition: transform var(--transition);
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
-.toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+.toggle input:checked + .toggle-track::after { transform: translateX(24px); }
 
 /* ── Animations ─────────────────────────────────────── */
 @keyframes fadeIn {

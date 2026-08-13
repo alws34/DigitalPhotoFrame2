@@ -212,13 +212,13 @@ export default function SettingsView() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         {tabs.map((key) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
             style={{
-              padding: "6px 16px", borderRadius: 20,
+              padding: "14px 22px", borderRadius: 20, minHeight: 48, fontSize: "1.05em",
               border: activeTab === key ? "1px solid var(--accent)" : "1px solid var(--glass-border)",
               background: activeTab === key ? "var(--accent-glow)" : "var(--glass-bg)",
               color: activeTab === key ? "var(--accent-hover)" : "var(--text-secondary)",
@@ -230,7 +230,13 @@ export default function SettingsView() {
         ))}
       </div>
 
-      <div className="glass" style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+      {/* Chrome (border/shadow/radius) lives on this non-scrolling wrapper;
+          overflowY is on the plain inner div below. A box-shadow on the
+          element that itself scrolls defeats WebKit's blit-and-shift fast
+          scroll path under Cairo software rendering, forcing a full repaint
+          every scroll tick -- this split is what made scrolling usable. */}
+      <div className="glass" style={{ flex: 1, overflow: "hidden" }}>
+      <div style={{ height: "100%", overflowY: "auto", padding: 20 }}>
         {/* Profile tab — synthetic, no settings key */}
         {activeTab === "profile" && (
           <div style={{ maxWidth: 480, margin: "0 auto" }}>
@@ -286,6 +292,7 @@ export default function SettingsView() {
             )}
           </>
         )}
+      </div>
       </div>
 
       {showRestartModal && (

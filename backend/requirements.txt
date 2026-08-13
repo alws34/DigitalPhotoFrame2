@@ -25,3 +25,4 @@ waitress>=3.0.0
 watchdog==6.0.0
 Werkzeug==3.1.6
 cryptography
+PyGObject>=3.42

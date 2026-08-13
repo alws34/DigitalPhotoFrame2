@@ -4,7 +4,7 @@ services:
   photoframe:
     group_add:
       - video
-      - render
+      - "105"  # render group GID (name not present in trixie base image)
     devices:
       - /dev/dri:/dev/dri
       - /dev/input:/dev/input
@@ -16,5 +16,6 @@ services:
       - XDG_RUNTIME_DIR=/run/user/1000
       - SDL_VIDEODRIVER=wayland
       - SDL_WAYLAND_CHECK_LIVE_RESIZE=0
+      - GTK_IM_MODULE=wayland
     # Uncomment for MQTT / mDNS:
     # network_mode: host

@@ -200,6 +200,21 @@ def get_all_users():
         cursor.execute("SELECT uid, username, email, role, is_active FROM users")
         return [dict(row) for row in cursor.fetchall()]
 
+def get_device_owner():
+    """The device's primary account: the earliest-created active user.
+
+    Used for on-device kiosk auto-login (no admin/owner role exists —
+    this app is effectively single-tenant per device).
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT uid, username, role FROM users WHERE is_active = 1 "
+            "ORDER BY created_at ASC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
 def update_password_db(uid, pw_hash, algo, password_changed_at):
     with get_db() as conn:
         cursor = conn.cursor()

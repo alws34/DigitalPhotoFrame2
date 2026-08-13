@@ -49,6 +49,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     libcap2-bin \
     wlr-randr \
+    gir1.2-gtk-3.0 \
+    gir1.2-webkit2-4.1 \
+    libgirepository-2.0-dev \
+    libcairo2-dev \
+    pkg-config \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

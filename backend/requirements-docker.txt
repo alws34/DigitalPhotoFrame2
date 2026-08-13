@@ -25,3 +25,4 @@ paho-mqtt>=1.6.0,<3.0
 pygame>=2.5.0
 qrcode[pil]>=7.4
 waitress>=3.0.0
+PyGObject>=3.42
