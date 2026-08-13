@@ -165,6 +165,7 @@ def delete_image(filename):
 
     try:
         os.remove(os.path.join(backend.IMAGE_DIR, filename))
+        backend._purge_thumbs(filename)
         backend.Frame.update_images_list()
         return jsonify({"message": f"File {filename} successfully deleted."})
     except FileNotFoundError:

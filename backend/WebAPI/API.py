@@ -528,6 +528,18 @@ class APIServer:
         safe = base.replace(os.sep, "_")
         return os.path.join(self.THUMB_DIR, f"{safe}_w{w}.webp")
 
+    def _purge_thumbs(self, filename: str) -> None:
+        """Delete every cached width variant for a source image. THUMB_DIR
+        never otherwise evicts -- one file per (filename, requested width)
+        -- so a deleted source left its thumbnails behind forever."""
+        base, _ = os.path.splitext(filename)
+        safe = base.replace(os.sep, "_")
+        for path in Path(self.THUMB_DIR).glob(f"{safe}_w*.webp"):
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
     def _make_thumb(self, src_path: str, dst_path: str, w: int) -> None:
         """
         Generates a thumbnail. Handles both Images (PIL) and Videos (OpenCV).

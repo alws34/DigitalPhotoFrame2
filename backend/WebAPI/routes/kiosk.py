@@ -31,6 +31,10 @@ def mint_kiosk_token() -> str:
 
 @kiosk_bp.route("/login", methods=["GET"], strict_slashes=False)
 def kiosk_login():
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        logging.warning("[Kiosk] Login hit from non-loopback address %s.", request.remote_addr)
+        return "Forbidden", 403
+
     token = request.args.get("token", "")
     expires = _tokens.pop(token, None)
     if not token:

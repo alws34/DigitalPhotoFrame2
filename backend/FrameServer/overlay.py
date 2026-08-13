@@ -92,8 +92,13 @@ class OverlayRenderer:
         font_color: Tuple[int, int, int] = (255, 255, 255),
         contrast_text: bool = False,
     ) -> np.ndarray:
-        # Cache key: recompute only when the clock second or weather changes.
-        # This reduces the expensive PIL pass from 30x/sec to 1x/sec.
+        # Cache key: recompute the PIL text render only when the clock second
+        # or weather changes -- reduces the expensive PIL pass from 30x/sec
+        # to 1x/sec. The blend below still runs every frame (the base photo
+        # moves under Ken Burns), but only over the cached overlay's bounding
+        # box, not the full frame -- avoids a full-frame float32
+        # convert/multiply/add on every compositor tick just to paint a
+        # small text corner.
         tick = time.strftime("%H:%M:%S")
         cache_key = (tick, repr(weather), repr(margins), datetime_corner, weather_corner, font_color)
         if cache_key != getattr(self, "_overlay_cache_key", None):
@@ -104,15 +109,24 @@ class OverlayRenderer:
                 font_color=font_color,
             )
             alpha = overlay_rgba.split()[3]
-            mask = np.array(alpha, dtype=np.float32) / 255.0
-            self._cached_mask = np.stack([mask, mask, mask], axis=-1)
-            text_rgb = np.array(overlay_rgba.convert("RGB"))
-            self._cached_text_bgr = cv2.cvtColor(text_rgb, cv2.COLOR_RGB2BGR).astype(np.float32)
+            bbox = alpha.getbbox()
+            self._cached_bbox = bbox
+            if bbox is not None:
+                mask = np.array(alpha.crop(bbox), dtype=np.float32)[..., None] / 255.0
+                self._cached_mask = np.repeat(mask, 3, axis=2)
+                text_rgb = np.array(overlay_rgba.crop(bbox).convert("RGB"))
+                self._cached_text_bgr = cv2.cvtColor(text_rgb, cv2.COLOR_RGB2BGR).astype(np.float32)
             self._overlay_cache_key = cache_key
 
-        out = (self._cached_text_bgr * self._cached_mask
-               + frame_bgr.astype(np.float32) * (1.0 - self._cached_mask))
-        return out.astype(np.uint8)
+        bbox = self._cached_bbox
+        if bbox is None:
+            return frame_bgr
+        x0, y0, x1, y1 = bbox
+        out = frame_bgr.copy()
+        region = out[y0:y1, x0:x1].astype(np.float32)
+        blended = self._cached_text_bgr * self._cached_mask + region * (1.0 - self._cached_mask)
+        out[y0:y1, x0:x1] = blended.astype(np.uint8)
+        return out
         
     # overlay.py  --- add this new method inside OverlayRenderer
     def render_overlay_rgba(
@@ -225,26 +239,50 @@ class OverlayRenderer:
         margin_x: int = 20,
         margin_y: int = 20,
     ) -> np.ndarray:
+        # Same cache-then-bbox-blend pattern as render_datetime_and_weather:
+        # the text only changes when the caller's 5s stats refresh ticks
+        # (see PhotoFrameServer._stats_last_refresh), but this used to redo
+        # a full-frame PIL fromarray/convert/draw/tobytes round-trip on
+        # every single compositor frame regardless.
         h, w = frame_bgr.shape[:2]
-        pil = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)).convert("RGBA")
-        draw = ImageDraw.Draw(pil)
+        cache_key = (text, color_name, corner, margin_x, margin_y, w, h)
+        if cache_key != getattr(self, "_stats_cache_key", None):
+            overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
 
-        # Measure multiline text
-        bbox = draw.multiline_textbbox((0, 0), text, font=self.stats_font, spacing=4)
-        text_w = bbox[2] - bbox[0]
-        text_h = bbox[3] - bbox[1]
+            bbox = draw.multiline_textbbox((0, 0), text, font=self.stats_font, spacing=4)
+            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
 
-        if corner == "top-left":
-            x, y = margin_x, margin_y
-        elif corner == "top-right":
-            x, y = w - text_w - margin_x, margin_y
-        elif corner == "bottom-left":
-            x, y = margin_x, h - text_h - margin_y
-        elif corner == "bottom-right":
-            x, y = w - text_w - margin_x, h - text_h - margin_y
-        else:
-            x, y = margin_x, margin_y
+            if corner == "top-left":
+                x, y = margin_x, margin_y
+            elif corner == "top-right":
+                x, y = w - text_w - margin_x, margin_y
+            elif corner == "bottom-left":
+                x, y = margin_x, h - text_h - margin_y
+            elif corner == "bottom-right":
+                x, y = w - text_w - margin_x, h - text_h - margin_y
+            else:
+                x, y = margin_x, margin_y
 
-        color = self._color_from_name(color_name)
-        draw.multiline_text((x, y), text, font=self.stats_font, fill=(*color, 255), spacing=4)
-        return cv2.cvtColor(np.array(pil.convert("RGB")), cv2.COLOR_RGB2BGR)
+            color = self._color_from_name(color_name)
+            draw.multiline_text((x, y), text, font=self.stats_font, fill=(*color, 255), spacing=4)
+
+            alpha = overlay.split()[3]
+            stats_bbox = alpha.getbbox()
+            self._stats_bbox = stats_bbox
+            if stats_bbox is not None:
+                mask = np.array(alpha.crop(stats_bbox), dtype=np.float32)[..., None] / 255.0
+                self._stats_mask = np.repeat(mask, 3, axis=2)
+                text_rgb = np.array(overlay.crop(stats_bbox).convert("RGB"))
+                self._stats_text_bgr = cv2.cvtColor(text_rgb, cv2.COLOR_RGB2BGR).astype(np.float32)
+            self._stats_cache_key = cache_key
+
+        stats_bbox = self._stats_bbox
+        if stats_bbox is None:
+            return frame_bgr
+        x0, y0, x1, y1 = stats_bbox
+        out = frame_bgr.copy()
+        region = out[y0:y1, x0:x1].astype(np.float32)
+        blended = self._stats_text_bgr * self._stats_mask + region * (1.0 - self._stats_mask)
+        out[y0:y1, x0:x1] = blended.astype(np.uint8)
+        return out
