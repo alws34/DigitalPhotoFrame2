@@ -1,9 +1,10 @@
-import json
 import os
+import shutil
 import sys
+import tempfile
 import threading
 import unittest
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 # Ensure Utilities can be imported
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,91 +23,65 @@ class TestAutoUpdater(unittest.TestCase):
             interval_sec=1,
             auto_restart_on_update=False
         )
-        self.repo_path = "/fake/repo"
-        self.backup_path = "/fake/repo/.autoupdate_backups/20260101-120000/settings.json"
-        self.dest_path = "/fake/repo/settings.json"
+        self.repo_path = tempfile.mkdtemp()
+        self.db_path = os.path.join(self.repo_path, "database.db")
+
+    def tearDown(self):
+        shutil.rmtree(self.repo_path, ignore_errors=True)
 
     # ----------------------------------------------------------------
-    # 1. Config Migration Logic
+    # 1. Settings DB backup / restore
     # ----------------------------------------------------------------
-    def test_migrate_old_flat_config_to_new_nested(self):
-        user_old_data = {
-            "font_name": "Comic Sans",
-            "time_font_size": 200,
-            "margin_left": 10,
-            "service_name": "MyPhotoFrame",
-            "backend_configs": {"host": "1.1.1.1", "server_port": 9000},
-            "custom_unknown_key": "keep_me"
-        }
+    def test_backup_settings_copies_db(self):
+        with open(self.db_path, "wb") as f:
+            f.write(b"fake-sqlite-bytes")
 
-        new_template_data = {
-            "ui": {
-                "font_name": "arial.ttf",
-                "time_font_size": 120,
-                "margins": {"left": 80, "bottom": 30}
-            },
-            "system": {"service_name": "PhotoFrame_Default"},
-            "backend_configs": {"host": "0.0.0.0", "server_port": 5002}
-        }
+        with patch("Utilities.config_store._get_db_path", return_value=self.db_path):
+            backup_root = self.updater._backup_settings(self.repo_path)
 
-        merged = self.updater._migrate_config_structure(user_old_data, new_template_data)
+        self.assertIsNotNone(backup_root)
+        backed_up = os.path.join(backup_root, "database.db")
+        self.assertTrue(os.path.isfile(backed_up))
+        with open(backed_up, "rb") as f:
+            self.assertEqual(f.read(), b"fake-sqlite-bytes")
 
-        self.assertEqual(merged["ui"]["font_name"], "Comic Sans")
-        self.assertEqual(merged["ui"]["time_font_size"], 200)
-        self.assertEqual(merged["ui"]["margins"]["left"], 10)
-        self.assertEqual(merged["ui"]["margins"]["bottom"], 30)
-        self.assertEqual(merged["backend_configs"]["server_port"], 9000)
-        self.assertEqual(merged["system"]["service_name"], "MyPhotoFrame")
+    def test_backup_settings_missing_db_returns_none(self):
+        with patch("Utilities.config_store._get_db_path", return_value=self.db_path):
+            backup_root = self.updater._backup_settings(self.repo_path)
+        self.assertIsNone(backup_root)
 
-    def test_migrate_already_migrated_config(self):
-        user_mixed_data = {
-            "date_font_size": 99,
-            "ui": {"font_name": "AlreadyNew", "margins": {"right": 5}}
-        }
-        new_template = {
-            "ui": {"font_name": "Default", "date_font_size": 10, "margins": {"right": 50, "left": 50}}
-        }
+    def test_restore_settings_does_not_overwrite_live_db(self):
+        # Common case: checkout never touched the (untracked) live DB.
+        # Restoring must not clobber it with the pre-update backup.
+        backup_root = os.path.join(self.repo_path, ".autoupdate_backups", "20260101-120000")
+        os.makedirs(backup_root)
+        with open(os.path.join(backup_root, "database.db"), "wb") as f:
+            f.write(b"backup-bytes")
+        with open(self.db_path, "wb") as f:
+            f.write(b"live-bytes")
 
-        merged = self.updater._migrate_config_structure(user_mixed_data, new_template)
+        with patch("Utilities.config_store._get_db_path", return_value=self.db_path):
+            self.updater._restore_settings(self.repo_path, backup_root)
 
-        self.assertEqual(merged["ui"]["date_font_size"], 99)
-        self.assertEqual(merged["ui"]["font_name"], "AlreadyNew")
-        self.assertEqual(merged["ui"]["margins"]["right"], 5)
-        self.assertEqual(merged["ui"]["margins"]["left"], 50)
+        with open(self.db_path, "rb") as f:
+            self.assertEqual(f.read(), b"live-bytes")
 
-    # ----------------------------------------------------------------
-    # 2. File Restore Integration
-    # ----------------------------------------------------------------
-    @patch("builtins.open", new_callable=mock_open)
-    @patch("os.makedirs")
-    @patch("shutil.copy2")
-    @patch("os.path.exists", return_value=True)
-    def test_restore_and_migrate_single_file(self, mock_exists, mock_copy, mock_makedirs, mock_file):
-        backup_json = '{"font_name": "UserFont"}'
-        template_json = '{"ui": {"font_name": "Default"}}'
-        
-        # side_effect controls return values of consecutive open() calls
-        # 1. Read Backup
-        # 2. Read Template
-        # Note: The 3rd open call is for writing, which mock_open handles automatically
-        mock_file.return_value.read.side_effect = [backup_json, template_json]
-        
-        self.updater._restore_and_migrate_single_file(self.backup_path, self.dest_path)
+    def test_restore_settings_recovers_deleted_db(self):
+        backup_root = os.path.join(self.repo_path, ".autoupdate_backups", "20260101-120000")
+        os.makedirs(backup_root)
+        with open(os.path.join(backup_root, "database.db"), "wb") as f:
+            f.write(b"backup-bytes")
+        # self.db_path deliberately never created -- simulates checkout
+        # deleting a still-tracked database.db on an old device.
 
-        # Get the mock file handle used
-        file_handle = mock_file.return_value
-        
-        # Verify write was called
-        self.assertTrue(file_handle.write.called, "File.write() was never called")
-        
-        # Combine all writes (json.dump might write in chunks)
-        written_content = "".join(args[0] for args, _ in file_handle.write.call_args_list)
-        written_data = json.loads(written_content)
-        
-        self.assertEqual(written_data["ui"]["font_name"], "UserFont")
+        with patch("Utilities.config_store._get_db_path", return_value=self.db_path):
+            self.updater._restore_settings(self.repo_path, backup_root)
+
+        with open(self.db_path, "rb") as f:
+            self.assertEqual(f.read(), b"backup-bytes")
 
     # ----------------------------------------------------------------
-    # 3. Git Operations
+    # 2. Git Operations
     # ----------------------------------------------------------------
     @patch("subprocess.run")
     @patch("shutil.which", return_value="/usr/bin/git")

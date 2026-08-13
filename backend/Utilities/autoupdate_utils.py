@@ -1,5 +1,3 @@
-import copy
-import json
 import logging
 import os
 import random
@@ -18,9 +16,8 @@ class AutoUpdater:
 
     Behavior:
       - Only updates when a newer *remote* semver tag exists (e.g., v1.2.3 or V1.2.3).
-      - Backs up all config-related JSON files before switching tags.
-      - Restores user settings after update, MIGRATING them from the old flat format
-        to the new nested format if necessary.
+      - Backs up the live settings/metadata SQLite DB before switching tags,
+        restoring it if the checkout removed it (see _backup_settings).
       - Keeps the old 'git pull' path as a fallback if no tags are found.
       - Optionally restarts your service after a successful update.
 
@@ -283,201 +280,52 @@ class AutoUpdater:
         return max(tags, key=lambda t: self._parse_semver(t))
 
     # ------------------------------------------------------------------
-    # Settings backup / restore / MIGRATION
+    # Settings DB backup / restore
     # ------------------------------------------------------------------
-    def _settings_candidates(self, repo_path: str) -> List[str]:
-        # RESTORED: Legacy helper for single-file config finding
-        names = ["photoframe_settings.json", "settings.json", "Settings.json"]
-        return [os.path.join(repo_path, n) for n in names]
-
-    def _find_settings_file(self, repo_path: str) -> Optional[str]:
-        # RESTORED: Logic to find the active settings file
-        for p in self._settings_candidates(repo_path):
-            if os.path.isfile(p):
-                return p
-        return None
-
-    def _list_config_files(self, repo_path: str) -> List[str]:
-        results: List[str] = []
-        skip_dirs = {
-            ".git", ".autoupdate_backups", "__pycache__", "env", ".env", ".venv", "venv",
-            ".mypy_cache", ".pytest_cache", "node_modules"
-        }
-        for root, dirs, files in os.walk(repo_path):
-            dirs[:] = [d for d in dirs if d not in skip_dirs]
-            for fn in files:
-                if not fn.lower().endswith(".json"):
-                    continue
-                base = fn.lower()
-                if "settings" not in base and "config" not in base:
-                    continue
-                full = os.path.join(root, fn)
-                results.append(os.path.abspath(full))
-        return sorted(set(results))
-
     def _backup_settings(self, repo_path: str) -> Optional[str]:
-        cfg_files = self._list_config_files(repo_path)
-        if not cfg_files:
+        """Copy the live settings/metadata SQLite DB out of the repo before
+        switching tags. SQLite is the sole live store (JSON files are
+        migration-seed-only, see Utilities.config_store/database.py) --
+        `git checkout` leaves an untracked database.db alone, but a device
+        whose current commit predates that change could still have it
+        tracked, in which case checkout would delete it. Cheap insurance."""
+        from Utilities.config_store import _get_db_path
+        src = _get_db_path()
+        if not os.path.isfile(src):
             return None
 
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         backup_root = os.path.join(repo_path, ".autoupdate_backups", ts)
+        dst = os.path.join(backup_root, "database.db")
 
         try:
-            for src in cfg_files:
-                rel = os.path.relpath(src, repo_path)
-                dst = os.path.join(backup_root, rel)
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                shutil.copy2(src, dst)
-            logging.info(
-                "[AutoUpdate] Backed up config files to %s", backup_root)
+            os.makedirs(backup_root, exist_ok=True)
+            shutil.copy2(src, dst)
+            logging.info("[AutoUpdate] Backed up settings DB to %s", dst)
             return backup_root
         except Exception:
-            logging.exception("[AutoUpdate] Failed to backup settings")
+            logging.exception("[AutoUpdate] Failed to backup settings DB")
             return None
 
-    def _restore_settings(self, repo_path: str, backup_path: Optional[str]) -> None:
-        """
-        Restore config files. If 'migration' is needed (old flat JSON -> new nested JSON),
-        it maps the old user values into the new structure, preserving user data.
-        """
-        if not backup_path:
+    def _restore_settings(self, repo_path: str, backup_root: Optional[str]) -> None:
+        """Restore the settings DB only if checkout actually removed it --
+        the common case is it was never touched (untracked file)."""
+        if not backup_root:
             return
-
+        from Utilities.config_store import _get_db_path
+        dst = _get_db_path()
+        if os.path.isfile(dst):
+            return
+        src = os.path.join(backup_root, "database.db")
+        if not os.path.isfile(src):
+            return
         try:
-            # Gather files to restore
-            files_to_restore = []
-            if os.path.isdir(backup_path):
-                # New multi-file backup
-                for root, _, files in os.walk(backup_path):
-                    for fn in files:
-                        src = os.path.join(root, fn)
-                        rel = os.path.relpath(src, backup_path)
-                        dst = os.path.join(repo_path, rel)
-                        files_to_restore.append((src, dst))
-            elif os.path.isfile(backup_path):
-                # Legacy single-file backup support
-                dest_file = self._find_settings_file(repo_path)
-                if not dest_file:
-                    dest_file = os.path.join(
-                        repo_path, os.path.basename(backup_path).split(".bak-")[0])
-                files_to_restore.append((backup_path, dest_file))
-
-            for src, dst in files_to_restore:
-                self._restore_and_migrate_single_file(src, dst)
-
-            logging.info(
-                "[AutoUpdate] Settings restored and migrated from %s", backup_path)
-
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+            logging.info("[AutoUpdate] Restored settings DB from %s", src)
         except Exception:
             logging.exception(
-                "[AutoUpdate] Failed to restore settings from %s", backup_path)
-
-    def _restore_and_migrate_single_file(self, backup_src: str, repo_dst: str) -> None:
-        """
-        Reads backup (src) and target (dst).
-        If both are valid JSON, merges src into dst with structure migration.
-        Otherwise falls back to simple file copy.
-        """
-        try:
-            # Ensure destination directory exists
-            os.makedirs(os.path.dirname(repo_dst), exist_ok=True)
-
-            # If destination doesn't exist, just copy the backup back.
-            if not os.path.exists(repo_dst):
-                shutil.copy2(backup_src, repo_dst)
-                return
-
-            # Read both
-            with open(backup_src, 'r', encoding='utf-8') as f:
-                user_data = json.load(f)
-
-            with open(repo_dst, 'r', encoding='utf-8') as f:
-                default_data = json.load(f)
-
-            # Perform Migration / Merge
-            merged_data = self._migrate_config_structure(
-                user_data, default_data)
-
-            # Write result back to repo_dst
-            with open(repo_dst, 'w', encoding='utf-8') as f:
-                json.dump(merged_data, f, indent=2)
-
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            # If not valid JSON, fallback to raw copy
-            logging.warning(
-                f"[AutoUpdate] Non-JSON config detected, performing raw copy: {backup_src}")
-            shutil.copy2(backup_src, repo_dst)
-        except Exception:
-            logging.exception(
-                f"[AutoUpdate] Error migrating {backup_src}, falling back to raw copy.")
-            shutil.copy2(backup_src, repo_dst)
-
-    def _migrate_config_structure(self, user_data: Dict, template_data: Dict) -> Dict:
-        """
-        Merges user_data into template_data.
-        Detects if user_data uses the old flat schema and maps it to the new nested schema.
-        """
-        merged = copy.deepcopy(template_data)
-
-        # Helper to set nested dict keys
-        def set_nested(d, path_list, value):
-            curr = d
-            for key in path_list[:-1]:
-                curr = curr.setdefault(key, {})
-            curr[path_list[-1]] = value
-
-        # 1. Schema Mapping (Old -> New Path)
-        mapping = {
-            "font_name": ["ui", "font_name"],
-            "service_name": ["system", "service_name"],
-            "time_font_size": ["ui", "time_font_size"],
-            "date_font_size": ["ui", "date_font_size"],
-            "margin_left": ["ui", "margins", "left"],
-            "margin_bottom": ["ui", "margins", "bottom"],
-            "margin_right": ["ui", "margins", "right"],
-            "spacing_between": ["ui", "spacing_between"],
-            "shadow_blur": ["ui", "text_shadow", "blur"],
-            "shadow_offset_x": ["ui", "text_shadow", "offset_x"],
-            "shadow_offset_y": ["ui", "text_shadow", "offset_y"],
-            "shadow_alpha": ["ui", "text_shadow", "alpha"],
-            "image_quality_encoding": ["system", "image_quality_encoding"],
-            "animation_duration": ["playback", "animation_duration"],
-            "delay_between_images": ["playback", "delay_between_images"],
-            "animation_fps": ["playback", "animation_fps"],
-            "allow_translucent_background": ["effects", "allow_translucent_background"],
-            "image_dir": ["system", "image_dir"],
-            "date_format": ["ui", "date_format"],
-            "log_file_path": ["system", "log_file_path"],
-        }
-
-        # 2. Apply Mapping
-        for old_key, new_path in mapping.items():
-            if old_key in user_data:
-                set_nested(merged, new_path, user_data[old_key])
-
-        # 3. Direct copy of complex top-level keys that existed in old and new
-        direct_sections = [
-            "open_meteo", "backend_configs", "stats", "about", "screen", "mqtt", "autoupdate"
-        ]
-        for sec in direct_sections:
-            if sec in user_data:
-                merged[sec] = user_data[sec]
-
-        # 4. Recursive Merge for already-new structures
-        for top_key in ["system", "playback", "ui", "effects"]:
-            if top_key in user_data and isinstance(user_data[top_key], dict):
-                self._recursive_dict_update(
-                    merged.setdefault(top_key, {}), user_data[top_key])
-
-        return merged
-
-    def _recursive_dict_update(self, target: Dict, source: Dict) -> None:
-        for k, v in source.items():
-            if isinstance(v, dict) and k in target and isinstance(target[k], dict):
-                self._recursive_dict_update(target[k], v)
-            else:
-                target[k] = v
+                "[AutoUpdate] Failed to restore settings DB from %s", src)
 
     # ------------------------------------------------------------------
     # Repo detection / Git plumbing
